@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Defined by SharkOS-CE (signature level): lets this helper start SharkOS-CE's StartupService. -->
+    <uses-permission android:name="com.sharkhome.launcher.permission.WAKE" />
+
+    <queries>
+        <package android:name="com.ts.appservice.power" />
+        <package android:name="com.sharkhome.launcher" />
+    </queries>
+
+    <application
+        android:allowBackup="false"
+        android:icon="@android:drawable/ic_lock_power_off"
+        android:label="SharkOS-CE helper">
+
+        <service
+            android:name=".WakeService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Opens the driver's home screen when the car's display switches on." />
+        </service>
+
+        <!-- SharkOS-CE starts this helper whenever it runs (that also clears Android's stopped flag after install). -->
+        <receiver
+            android:name=".StartReceiver"
+            android:exported="true"
+            android:permission="com.sharkhome.launcher.permission.WAKE">
+            <intent-filter>
+                <action android:name="com.sharkhome.wakehelper.START" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

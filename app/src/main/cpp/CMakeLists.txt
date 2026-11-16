@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(sharkcam)
+add_executable(sharkcam_exe sharkcam.cpp)
+set_target_properties(sharkcam_exe PROPERTIES OUTPUT_NAME "libsharkcam_exe.so")
+target_link_libraries(sharkcam_exe dl mediandk log)

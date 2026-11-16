@@ -1,0 +1,10 @@
+<resources>
+    <style name="Theme.SharkOSCE" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:navigationBarColor">@color/bar</item>
+        <item name="android:windowShowWallpaper">false</item>
+    </style>
+    <color name="bg">#FF17181A</color>
+    <color name="bar">#FF141517</color>
+</resources>

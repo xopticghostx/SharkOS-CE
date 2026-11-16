@@ -1,0 +1,3745 @@
+{
+  "_readme": [
+    "SharkOS-CE car signal map. Each signal lists where to READ and WRITE it, in order of preference.",
+    "  caradapter: one of hvac, body, setting, seat, power, cabin, assist, general, sensor, cloud, or * (try every adapter). This is the Shark 6's own car service.",
+    "  bydauto: an android.hardware.bydauto device class, e.g. statistic.BYDAutoStatisticDevice.",
+    "  methods: candidate method names, tried in order. args: fixed leading arguments. Writes append the value as the last argument.",
+    "  scale/offset: shown value = raw * scale + offset.",
+    "  labels: name -> raw code. -1 means 'not known yet' (the Off-road page can learn these by long-press).",
+    "Method names come from head-unit APK and Car Explorer analysis. Raw encodings (seat levels, gear codes, temperature scale) are",
+    "best guesses: check them on the Diagnostics screen and correct them here.",
+    "To override without rebuilding: copy this file to /sdcard/Android/data/com.sharkhome.launcher/files/shark6_codes.json and restart the app."
+  ],
+  "signals": {
+    "stat.evKm": {
+      "_note": "Lifetime km driven in EV mode. Read 14059 on 7 Nov (EV 14059 + HEV 3447 = odometer 17506). Used by the real-range estimate.",
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getEVMileageValue"
+          ]
+        }
+      ]
+    },
+    "stat.hevKm": {
+      "_note": "Lifetime km driven in HEV mode. Read 3447 on 7 Nov.",
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getHEVMileageValue"
+          ]
+        }
+      ]
+    },
+    "stat.totalElecKwh": {
+      "_note": "Lifetime electricity used, kWh. Read 3612.3 on 7 Nov (= 25.7 kWh/100 km over the EV km).",
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getTotalElecConValue"
+          ]
+        }
+      ]
+    },
+    "stat.totalFuelL": {
+      "_note": "Lifetime fuel used, litres. Read 354.5 on 7 Nov (= 10.3 L/100 km over the HEV km; BYD shows 2.0 because it divides by ALL km).",
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getTotalFuelConValue"
+          ]
+        }
+      ]
+    },
+    "stat.socFloor": {
+      "_note": "Lowest battery % the car drives down to in EV before the engine takes over. Read 25.",
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getSocTargetLowLimit"
+          ]
+        }
+      ]
+    },
+    "engine.rpm": {
+      "_note": "READ ONLY, unverified: body.getEngineSpeed (rpm).",
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getEngineSpeed"
+          ]
+        }
+      ]
+    },
+    "motor.frontRpm": {
+      "_note": "cloud.getDriverMotorSpeed(1) = front motor. Read 14999 with the car stopped (8 Nov), so zero = 15000: offset -15000 applied. Scale (rpm per unit) unverified while driving.",
+      "offset": -15000,
+      "read": [
+        {
+          "caradapter": "cloud",
+          "methods": [
+            "getDriverMotorSpeed"
+          ],
+          "args": [
+            1
+          ]
+        }
+      ]
+    },
+    "motor.rearRpm": {
+      "_note": "cloud.getDriverMotorSpeed(2) = rear motor. Read 29999 stopped, so zero = 30000: offset -30000 applied. Scale unverified.",
+      "offset": -30000,
+      "read": [
+        {
+          "caradapter": "cloud",
+          "methods": [
+            "getDriverMotorSpeed"
+          ],
+          "args": [
+            2
+          ]
+        }
+      ]
+    },
+    "motor.frontTorque": {
+      "_note": "cloud.getDriverMotorTorque(1). Read 5000 stopped, so zero = 5000 (offset -5000 applied). Scale unverified.",
+      "offset": -5000,
+      "read": [
+        {
+          "caradapter": "cloud",
+          "methods": [
+            "getDriverMotorTorque"
+          ],
+          "args": [
+            1
+          ]
+        }
+      ]
+    },
+    "motor.rearTorque": {
+      "_note": "cloud.getDriverMotorTorque(2). Read 0 stopped (unlike front = 5000). RAW, unverified.",
+      "read": [
+        {
+          "caradapter": "cloud",
+          "methods": [
+            "getDriverMotorTorque"
+          ],
+          "args": [
+            2
+          ]
+        }
+      ]
+    },
+    "motor.frontTemp": {
+      "_note": "cloud.getDriverMotorTemperature(1). Offset -40 for standard CAN motor temperature.",
+      "offset": -40,
+      "read": [
+        {
+          "caradapter": "cloud",
+          "methods": [
+            "getDriverMotorTemperature"
+          ],
+          "args": [
+            1
+          ]
+        }
+      ]
+    },
+    "motor.rearTemp": {
+      "_note": "cloud.getDriverMotorTemperature(2). Offset -40 for standard CAN motor temperature.",
+      "offset": -40,
+      "read": [
+        {
+          "caradapter": "cloud",
+          "methods": [
+            "getDriverMotorTemperature"
+          ],
+          "args": [
+            2
+          ]
+        }
+      ]
+    },
+    "motor.frontVolt": {
+      "_note": "cloud.getMotorMCUGeneratrixVolt(1). Read 368 parked = 368 V HV bus.",
+      "read": [
+        {
+          "caradapter": "cloud",
+          "methods": [
+            "getMotorMCUGeneratrixVolt"
+          ],
+          "args": [
+            1
+          ]
+        }
+      ]
+    },
+    "motor.rearVolt": {
+      "_note": "cloud.getMotorMCUGeneratrixVolt(2). Read 368 parked = 368 V HV bus.",
+      "read": [
+        {
+          "caradapter": "cloud",
+          "methods": [
+            "getMotorMCUGeneratrixVolt"
+          ],
+          "args": [
+            2
+          ]
+        }
+      ]
+    },
+    "motor.frontCurrent": {
+      "_note": "cloud.getMotorMCUGeneratrixCurrent(1). Read 1000 parked, so zero = 1000 (offset -1000).",
+      "offset": -1000,
+      "read": [
+        {
+          "caradapter": "cloud",
+          "methods": [
+            "getMotorMCUGeneratrixCurrent"
+          ],
+          "args": [
+            1
+          ]
+        }
+      ]
+    },
+    "motor.rearCurrent": {
+      "_note": "cloud.getMotorMCUGeneratrixCurrent(2). Read 1000 parked, so zero = 1000 (offset -1000).",
+      "offset": -1000,
+      "read": [
+        {
+          "caradapter": "cloud",
+          "methods": [
+            "getMotorMCUGeneratrixCurrent"
+          ],
+          "args": [
+            2
+          ]
+        }
+      ]
+    },
+    "battery.temp": {
+      "_note": "battery_service.getBatteryTemp(1) via OtaTsUpdateService (IOtaSdkManager).",
+      "read": [
+        {
+          "caradapter": "battery_service",
+          "methods": [
+            "getBatteryTemp"
+          ],
+          "args": [
+            1
+          ]
+        },
+        {
+          "caradapter": "battery_service",
+          "methods": [
+            "getBatteryTemp"
+          ],
+          "args": [
+            0
+          ]
+        }
+      ]
+    },
+    "battery.voltage": {
+      "_note": "battery_service.getBatteryVoltage(1) via OtaTsUpdateService. On the car (8 Nov 2026, parked, plugged in) arg 1 reads 13 = volts already: scale 1.",
+      "read": [
+        {
+          "caradapter": "battery_service",
+          "methods": [
+            "getBatteryVoltage"
+          ],
+          "args": [
+            1
+          ]
+        },
+        {
+          "caradapter": "battery_service",
+          "methods": [
+            "getBatteryVoltage"
+          ],
+          "args": [
+            0
+          ]
+        },
+        {
+          "caradapter": "cabin",
+          "methods": [
+            "getBatteryVoltage"
+          ]
+        }
+      ]
+    },
+    "drive.mode": {
+      "_note": "setting.getDriveMode: 0 Eco, 1 Normal, 2 Sport (1 read in Normal). READ ONLY: this firmware has no setDriveMode (checked 14 Nov), so the write entry never works and the app only shows it.",
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getDriveMode"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "setDriveMode"
+          ]
+        }
+      ],
+      "labels": {
+        "Eco": 0,
+        "Normal": 1,
+        "Sport": 2
+      }
+    },
+    "drive.regenLevel": {
+      "_note": "VERIFIED 14 Nov 2026 by switching BYD's own Regenerative Braking (Energy page): Standard = 2, High = 3.",
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getEnergyFeedback"
+          ]
+        },
+        {
+          "bydauto": "energy.BYDAutoEnergyDevice",
+          "methods": [
+            "getEnergyFeedback"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "setEnergyFeedback"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "setEnergyFeedback"
+          ]
+        },
+        {
+          "bydauto": "energy.BYDAutoEnergyDevice",
+          "methods": [
+            "setEnergyFeedback"
+          ]
+        }
+      ],
+      "labels": {
+        "Standard": 2,
+        "High": 3
+      }
+    },
+    "chassis.brakeFeel": {
+      "_note": "VERIFIED 14 Nov 2026 by switching BYD's own Brake Assist Mode: Comfort = 0, Sport = 1 (the old 1/2 guess made 'Comfort' actually set Sport and 'Sport' write 2 do nothing). WRITE codes differ from READ codes: setBrakePedalMode(2) gives read 0 (Comfort), setBrakePedalMode(1) gives read 1 (Sport); setBrakePedalMode(0) does nothing.",
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getBrakePedalMode",
+            "getBrakeFootSenseState"
+          ]
+        },
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "getBrakeFootSenseState"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "setBrakePedalMode"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "setBrakePedalMode"
+          ]
+        }
+      ],
+      "labels": {
+        "Comfort": 0,
+        "Sport": 1
+      },
+      "writeLabels": {
+        "Comfort": [
+          {
+            "bydauto": "setting.BYDAutoSettingDevice",
+            "methods": [
+              "setBrakePedalMode"
+            ],
+            "args": [
+              2
+            ]
+          }
+        ],
+        "Sport": [
+          {
+            "bydauto": "setting.BYDAutoSettingDevice",
+            "methods": [
+              "setBrakePedalMode"
+            ],
+            "args": [
+              1
+            ]
+          }
+        ]
+      }
+    },
+    "chassis.steerFeel": {
+      "_note": "VERIFIED 14 Nov 2026 by switching BYD's own Steering Assist Mode: Comfort = 1, Sport = 3.",
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getSteerAssis"
+          ]
+        },
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "getSteerAssis"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "setSteerAssis"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "setSteerAssis"
+          ]
+        }
+      ],
+      "labels": {
+        "Comfort": 1,
+        "Sport": 3
+      }
+    },
+    "chassis.autoHold": {
+      "_note": "Auto Hold, READ ONLY. bydauto ADAS getAVHState and assist.getAutoParkingState both read 0 when OFF.",
+      "read": [
+        {
+          "bydauto": "adas.BYDAutoADASDevice",
+          "methods": [
+            "getAVHState"
+          ]
+        },
+        {
+          "caradapter": "assist",
+          "methods": [
+            "getAutoParkingState",
+            "getAutoHoldState"
+          ]
+        }
+      ],
+      "labels": {
+        "off": 0,
+        "on": 1
+      }
+    },
+    "chassis.stability": {
+      "_note": "Stability control (ESC). SAFETY SYSTEM. Read: assist.getElecCarBodyStablySysState 0 = ON, 1 = OFF. Write (owner-authorised 14 Nov 2026, Drive tab only): assist.setElecCarBodyStablySysState(1) = turn OFF, (2) = turn ON; this is exactly what BYD's own quick-settings EspOff tile sends (found in BydCarSystemUI). Only ever written from the Drive tab control, with a speed limit and a two-step confirm; never by Startup Memory or any automation.",
+      "read": [
+        {
+          "caradapter": "assist",
+          "methods": [
+            "getElecCarBodyStablySysState",
+            "getCarBodySteadyState"
+          ]
+        }
+      ],
+      "write": [],
+      "writeLabels": {
+        "off": [
+          {
+            "bydauto": "dipilot.BYDAutoDiPilotDevice",
+            "methods": [
+              "setElecCarBodyStablySysState"
+            ],
+            "args": [
+              1
+            ]
+          },
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setElecCarBodyStablySysState"
+            ],
+            "args": [
+              1
+            ]
+          }
+        ],
+        "on": [
+          {
+            "bydauto": "dipilot.BYDAutoDiPilotDevice",
+            "methods": [
+              "setElecCarBodyStablySysState"
+            ],
+            "args": [
+              2
+            ]
+          },
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setElecCarBodyStablySysState"
+            ],
+            "args": [
+              2
+            ]
+          }
+        ]
+      },
+      "labels": {
+        "on": 0,
+        "off": 1
+      }
+    },
+    "chassis.sandAbs": {
+      "_note": "Sand ABS mode status. SAFETY SYSTEM: READ ONLY.",
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getSandAbsModeState"
+          ]
+        }
+      ],
+      "labels": {
+        "off": [
+          0,
+          2
+        ],
+        "on": [
+          1
+        ]
+      }
+    },
+    "chassis.slope": {
+      "_note": "sensor.getSlope read 255 parked (no value?); bydauto sensor getSlope read -1.",
+      "read": [
+        {
+          "caradapter": "sensor",
+          "methods": [
+            "getSlope"
+          ]
+        },
+        {
+          "bydauto": "sensor.BYDAutoSensorDevice",
+          "methods": [
+            "getSlope"
+          ]
+        }
+      ]
+    },
+    "chassis.steeringAngle": {
+      "_note": "body.getSteeringWheelValue(1) = steering angle. Read 65490 parked = unsigned 16-bit for -46 (-4.6 deg). VehicleRepository decodes unsigned 16-bit to signed; scale 0.1 gives degrees.",
+      "scale": 0.1,
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getSteeringWheelValue"
+          ],
+          "args": [
+            1
+          ]
+        }
+      ]
+    },
+    "pedal.accelerator": {
+      "_note": "Accelerator pedal position (0..100%).",
+      "read": [
+        {
+          "caradapter": "sensor",
+          "methods": [
+            "getAccelerateDeepness"
+          ]
+        },
+        {
+          "bydauto": "speed.BYDAutoSpeedDevice",
+          "methods": [
+            "getAccelerateDeepness"
+          ]
+        }
+      ]
+    },
+    "pedal.brake": {
+      "_note": "Brake pedal position (0..100%).",
+      "read": [
+        {
+          "caradapter": "sensor",
+          "methods": [
+            "getBrakeDeepness"
+          ]
+        },
+        {
+          "bydauto": "speed.BYDAutoSpeedDevice",
+          "methods": [
+            "getBrakeDeepness"
+          ]
+        }
+      ]
+    },
+    "trip.distance": {
+      "_note": "general.getCurrentTripMileage. Scaled by 0.1 km if reported in 0.1 km, or 1.0.",
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getCurrentTripMileage"
+          ]
+        }
+      ]
+    },
+    "trip.time": {
+      "_note": "general.getCurrentTripTime (minutes).",
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getCurrentTripTime"
+          ]
+        }
+      ]
+    },
+    "trip.fuel": {
+      "_note": "general.getCurrentTripFuel (L).",
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getCurrentTripFuel"
+          ]
+        }
+      ]
+    },
+    "trip.elec": {
+      "_note": "general.getCurrentTripElec (kWh).",
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getCurrentTripElec"
+          ]
+        }
+      ]
+    },
+    "env.lightIntensity": {
+      "_note": "sensor.getLightIntensity read 5 in daylight.",
+      "read": [
+        {
+          "caradapter": "sensor",
+          "methods": [
+            "getLightIntensity"
+          ]
+        }
+      ]
+    },
+    "trailer.mode": {
+      "_note": "setting.getTrailerModeState (1 = on, 2 = off).",
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getTrailerModeState"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "setTrailerModeState"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "setTrailerModeState"
+          ]
+        }
+      ],
+      "labels": {
+        "on": 1,
+        "off": [
+          2,
+          0
+        ]
+      }
+    },
+    "trailer.size": {
+      "_note": "setting.getTrailerDragType / setTrailerDragType. Small = 1, Medium = 2, Large = 3 (reads 15 when trailer mode is off).",
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getTrailerDragType"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "setTrailerDragType"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "setTrailerDragType"
+          ]
+        }
+      ],
+      "labels": {
+        "Small": 1,
+        "Medium": 2,
+        "Large": 3,
+        "Off": 15
+      }
+    },
+    "trailer.lightCheck": {
+      "_note": "setting.getTrailerLightCheckState / setTrailerLightCheckState. Cycles trailer lights for solo walk-around check.",
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getTrailerLightCheckState"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "setTrailerLightCheckState"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "setTrailerLightCheckState"
+          ]
+        }
+      ],
+      "labels": {
+        "on": 1,
+        "off": [
+          2,
+          0
+        ]
+      }
+    },
+    "trailer.mileage": {
+      "_note": "setting.getTrailerModeMileage.",
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getTrailerModeMileage"
+          ]
+        }
+      ]
+    },
+    "tyre.tempFl": {
+      "_note": "Front left tyre temperature (°C). Raw is °C + 40: all four read 68 parked at 29 °C outside (8 Nov 2026), so offset -40. Unverified while driving.",
+      "offset": -40,
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getTyreTemperatureValue"
+          ],
+          "args": [
+            1
+          ]
+        },
+        {
+          "bydauto": "tyre.BYDAutoTyreDevice",
+          "methods": [
+            "getTyreTemperatureValue"
+          ],
+          "args": [
+            1
+          ]
+        }
+      ]
+    },
+    "tyre.tempFr": {
+      "_note": "Front right tyre temperature (°C). Raw is °C + 40: all four read 68 parked at 29 °C outside (8 Nov 2026), so offset -40. Unverified while driving.",
+      "offset": -40,
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getTyreTemperatureValue"
+          ],
+          "args": [
+            2
+          ]
+        },
+        {
+          "bydauto": "tyre.BYDAutoTyreDevice",
+          "methods": [
+            "getTyreTemperatureValue"
+          ],
+          "args": [
+            2
+          ]
+        }
+      ]
+    },
+    "tyre.tempRl": {
+      "_note": "Rear left tyre temperature (°C). Raw is °C + 40: all four read 68 parked at 29 °C outside (8 Nov 2026), so offset -40. Unverified while driving.",
+      "offset": -40,
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getTyreTemperatureValue"
+          ],
+          "args": [
+            3
+          ]
+        },
+        {
+          "bydauto": "tyre.BYDAutoTyreDevice",
+          "methods": [
+            "getTyreTemperatureValue"
+          ],
+          "args": [
+            3
+          ]
+        }
+      ]
+    },
+    "tyre.tempRr": {
+      "_note": "Rear right tyre temperature (°C). Raw is °C + 40: all four read 68 parked at 29 °C outside (8 Nov 2026), so offset -40. Unverified while driving.",
+      "offset": -40,
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getTyreTemperatureValue"
+          ],
+          "args": [
+            4
+          ]
+        },
+        {
+          "bydauto": "tyre.BYDAutoTyreDevice",
+          "methods": [
+            "getTyreTemperatureValue"
+          ],
+          "args": [
+            4
+          ]
+        }
+      ]
+    },
+    "vehicle.evMileage": {
+      "_note": "Total lifetime EV mileage (km), e.g. 14059 km.",
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getEVMileageValue"
+          ]
+        },
+        {
+          "bydauto": "statistic.BYDAutoStatisticDevice",
+          "methods": [
+            "getEVMileageValue"
+          ]
+        }
+      ]
+    },
+    "vehicle.hevMileage": {
+      "_note": "Total lifetime HEV mileage (km), e.g. 3447 km.",
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getHEVMileageValue"
+          ]
+        },
+        {
+          "bydauto": "statistic.BYDAutoStatisticDevice",
+          "methods": [
+            "getHEVMileageValue"
+          ]
+        }
+      ]
+    },
+    "vehicle.avgSpeed": {
+      "_note": "Average speed (km/h), e.g. 35 km/h.",
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getAverageSpeedValue"
+          ]
+        },
+        {
+          "bydauto": "statistic.BYDAutoStatisticDevice",
+          "methods": [
+            "getAverageSpeedValue"
+          ]
+        }
+      ]
+    },
+    "energy.drivePct50km": {
+      "_note": "Last 50 km energy used by drivetrain (%), e.g. 88%.",
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getTripDrivePercent50km"
+          ]
+        }
+      ]
+    },
+    "energy.acPct50km": {
+      "_note": "Last 50 km energy used by A/C (%), e.g. 7%.",
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getTripAcPercent50km"
+          ]
+        }
+      ]
+    },
+    "energy.auxPct50km": {
+      "_note": "Last 50 km energy used by vehicle electronics/appliances (%), e.g. 5%.",
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getTripElecAppliancePercent50km"
+          ]
+        }
+      ]
+    },
+    "energy.socTarget": {
+      "_note": "Target battery SOC % for HEV Hold / AI-Save (25..70%).",
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getSOCTarget"
+          ]
+        },
+        {
+          "bydauto": "energy.BYDAutoEnergyDevice",
+          "methods": [
+            "getSOCTarget"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "setSOCTarget"
+          ]
+        },
+        {
+          "bydauto": "energy.BYDAutoEnergyDevice",
+          "methods": [
+            "setSOCTarget"
+          ]
+        }
+      ]
+    },
+    "energy.socSave": {
+      "_note": "SAVE / Battery Hold switch (BYD Quick Settings QSPanelPresenter.setMandatoryElectricState). Verified on car 16 Nov 2026: 2 = on, 1 = off (inverted vs standard BYD 1=on/2=off; takes ~1.5s to read back).",
+      "confirmMs": 2500,
+      "read": [
+        {
+          "bydauto": "energy.BYDAutoEnergyDevice",
+          "methods": [
+            "getMandatoryElectricState"
+          ]
+        },
+        {
+          "caradapter": "body",
+          "methods": [
+            "getMandatoryElectricState"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "bydauto": "energy.BYDAutoEnergyDevice",
+          "methods": [
+            "setMandatoryElectricState"
+          ]
+        },
+        {
+          "caradapter": "body",
+          "methods": [
+            "setMandatoryElectricState"
+          ]
+        }
+      ],
+      "labels": {
+        "on": 2,
+        "off": [
+          1,
+          0
+        ]
+      }
+    },
+    "cabin.wirelessPower": {
+      "_note": "Front wireless phone charger power (W), e.g. 15 or 50 W.",
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getWirelessChargingPowerFRState"
+          ]
+        }
+      ]
+    },
+    "advanced.wirelessCharge": {
+      "_note": "Wireless charging pad switch (1 = on, 2 = off).",
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getWirelessChargingSwitchState"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "setWirelessChargingSwitchState"
+          ]
+        }
+      ],
+      "labels": {
+        "on": 1,
+        "off": [
+          2,
+          0
+        ]
+      }
+    },
+    "seat.steeringWheelHeat": {
+      "_note": "Steering wheel heating (1 = on, 2 = off).",
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getSteeringWheelHeatingState"
+          ]
+        },
+        {
+          "caradapter": "cabin",
+          "methods": [
+            "getSteeringWheelWarmState"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "setSteeringWheelHeatingState"
+          ]
+        },
+        {
+          "caradapter": "cabin",
+          "methods": [
+            "setSteeringWheelWarmState"
+          ]
+        }
+      ],
+      "labels": {
+        "on": 1,
+        "off": [
+          2,
+          0
+        ]
+      }
+    },
+    "climate.dualSync": {
+      "_note": "Hardware Dual/Sync mode on HVAC module (1 = Sync/Single, 2 = Dual).",
+      "read": [
+        {
+          "caradapter": "hvac",
+          "methods": [
+            "getAcTemperatureControlMode"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "caradapter": "hvac",
+          "methods": [
+            "setAcTemperatureControlMode"
+          ]
+        }
+      ],
+      "labels": {
+        "on": 1,
+        "off": 2
+      }
+    },
+    "advanced.hud": {
+      "_note": "Head-Up Display (HUD) master switch (1 = on, 2 = off).",
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getHudState"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "setHudState"
+          ]
+        }
+      ],
+      "labels": {
+        "on": 1,
+        "off": [
+          2,
+          0
+        ]
+      }
+    },
+    "advanced.hudSnow": {
+      "_note": "HUD Mode / Snow Mode (BydCarSettings BYDAutoSettingDevice.getHudMode / setHudMode). Verified on car 16 Nov 2026: 1 = on, 2 = off (both round-trips confirmed=true).",
+      "read": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "getHudMode"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getHudMode"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "setHudMode"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "setHudMode"
+          ]
+        }
+      ],
+      "labels": {
+        "on": 1,
+        "off": [
+          2,
+          0
+        ]
+      }
+    },
+    "advanced.blindSpot": {
+      "_note": "Blind Spot Detection (BSD) mirror alert (1 = on, 2 = off).",
+      "read": [
+        {
+          "caradapter": "assist",
+          "methods": [
+            "getBlindMonitorState"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "caradapter": "assist",
+          "methods": [
+            "setBlindMonitorState"
+          ]
+        }
+      ],
+      "labels": {
+        "on": 1,
+        "off": [
+          2,
+          0
+        ]
+      }
+    },
+    "advanced.mirrorFold": {
+      "_note": "Exterior mirrors auto-fold on lock (BydCarSettings getAutoExternalRearMirrorFollowUpSwitch / setAutoExternalRearMirrorFollowUpSwitch). Verified on car 16 Nov 2026: 1 = on, 2 = off (both round-trips confirmed=true).",
+      "read": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "getAutoExternalRearMirrorFollowUpSwitch"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getAutoExternalRearMirrorFollowUpSwitch"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "setAutoExternalRearMirrorFollowUpSwitch"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "setAutoExternalRearMirrorFollowUpSwitch"
+          ]
+        }
+      ],
+      "labels": {
+        "on": 1,
+        "off": [
+          2,
+          0
+        ]
+      }
+    },
+    "body.cargoLight": {
+      "_note": "Ute tub / cargo bed light switch (CarAdapterService body.getCargoLightSwitchState / setCargoLightSwitchState). Verified on car 16 Nov 2026: 1 = on, 2 = off (off takes ~1-2s to read back).",
+      "confirmMs": 2500,
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getCargoLightSwitchState"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "setCargoLightSwitchState"
+          ]
+        }
+      ],
+      "labels": {
+        "on": 1,
+        "off": [
+          2,
+          0
+        ]
+      }
+    },
+    "display.screenRotation": {
+      "_note": "Center screen rotation (setting.getScreenAngle / setScreenRotation). Encoding unverified on car.",
+      "read": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "getScreenAngle",
+            "getScreenAngleValue"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getScreenAngle",
+            "getScreenAngleValue"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "setScreenRotation"
+          ]
+        }
+      ],
+      "labels": {
+        "Landscape": 1,
+        "Portrait": 2
+      }
+    },
+    "climate.power": {
+      "_note": "Same calls as BYD's climate app: BYDAutoAcDevice.start(0)/stop(0), AC_POWER_OFF=0/ON=1. The caradapter getAcStartState uses a different encoding (2 = off), so it is not read here.",
+      "read": [
+        {
+          "bydauto": "ac.BYDAutoAcDevice",
+          "methods": [
+            "getAcStartState"
+          ]
+        }
+      ],
+      "writeLabels": {
+        "on": [
+          {
+            "bydauto": "ac.BYDAutoAcDevice",
+            "methods": [
+              "start"
+            ],
+            "args": [
+              0
+            ]
+          },
+          {
+            "caradapter": "hvac",
+            "methods": [
+              "start"
+            ],
+            "args": [
+              0
+            ]
+          }
+        ],
+        "off": [
+          {
+            "bydauto": "ac.BYDAutoAcDevice",
+            "methods": [
+              "stop"
+            ],
+            "args": [
+              0
+            ]
+          },
+          {
+            "caradapter": "hvac",
+            "methods": [
+              "stop"
+            ],
+            "args": [
+              0
+            ]
+          }
+        ]
+      },
+      "labels": {
+        "off": 0,
+        "on": 1
+      }
+    },
+    "climate.tempDriver": {
+      "_note": "BYD Shark 6 HVAC uses integer degrees Celsius (17..32). HvacAdapterManager.getTempratureMain / setAcTemperatureMain(int).",
+      "read": [
+        {
+          "caradapter": "hvac",
+          "methods": [
+            "getTempratureMain",
+            "getTemperatureMain",
+            "getTempMain",
+            "getTemperatureDriver",
+            "getTemperatureLeft"
+          ]
+        },
+        {
+          "bydauto": "ac.BYDAutoAcDevice",
+          "methods": [
+            "getTemprature"
+          ],
+          "args": [
+            1
+          ]
+        }
+      ],
+      "write": [
+        {
+          "caradapter": "hvac",
+          "methods": [
+            "setAcTemperatureMain"
+          ]
+        }
+      ],
+      "scale": 1
+    },
+    "climate.tempPassenger": {
+      "_note": "BYD Shark 6 HVAC uses integer degrees Celsius (17..32). HvacAdapterManager.getTempratureDeputy / setAcTemperatureDeputy(int).",
+      "read": [
+        {
+          "caradapter": "hvac",
+          "methods": [
+            "getTempratureDeputy",
+            "getTemperatureDeputy",
+            "getTempDeputy",
+            "getTemperaturePassenger",
+            "getTemperatureRight"
+          ]
+        },
+        {
+          "bydauto": "ac.BYDAutoAcDevice",
+          "methods": [
+            "getTemprature"
+          ],
+          "args": [
+            2
+          ]
+        }
+      ],
+      "write": [
+        {
+          "caradapter": "hvac",
+          "methods": [
+            "setAcTemperatureDeputy"
+          ]
+        }
+      ],
+      "scale": 1
+    },
+    "climate.fan": {
+      "read": [
+        {
+          "caradapter": "hvac",
+          "methods": [
+            "getAcWindLevel",
+            "getWindLevel"
+          ]
+        },
+        {
+          "bydauto": "ac.BYDAutoAcDevice",
+          "methods": [
+            "getAcWindLevel"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "caradapter": "hvac",
+          "methods": [
+            "setAcWindLevel"
+          ]
+        },
+        {
+          "bydauto": "ac.BYDAutoAcDevice",
+          "methods": [
+            "setAcWindLevel"
+          ]
+        }
+      ]
+    },
+    "climate.auto": {
+      "read": [
+        {
+          "caradapter": "hvac",
+          "methods": [
+            "getAcControlMode",
+            "getTemperatureControlMode",
+            "getAcTemperatureControlMode"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "caradapter": "hvac",
+          "methods": [
+            "setAcControlMode"
+          ],
+          "args": [
+            0
+          ]
+        }
+      ],
+      "labels": {
+        "off": 1,
+        "on": 2
+      },
+      "_note": "Verified 2026-11-07 (BYD climate app + BydHvac ACManagerImpl): caradapter getAcControlMode 2 = Auto, 1 = Manual. Write is the two-arg HvacAdapterManager.setAcControlMode(device, mode) with the same codes (the one-arg version doesn't exist). BYDAutoAcDevice uses 0 = Auto, 1 = Manual and translates. Changing airflow in BYD's app drops Auto to manual."
+    },
+    "climate.ac": {
+      "_note": "setAcCompressorState/getAcCompressorState are empty stubs in the caradapter. setAcCompressorMode(source, mode) goes straight to the car's setAcTurnOn: 1 = on, 2 = off, 0 = no request (ignored). Reads report 1 = on, 0 = off. Tested on the car 2026-11-05: on works with 1, off with 0 did nothing.",
+      "read": [
+        {
+          "bydauto": "ac.BYDAutoAcDevice",
+          "methods": [
+            "getAcCompressorMode"
+          ]
+        }
+      ],
+      "writeLabels": {
+        "on": [
+          {
+            "bydauto": "ac.BYDAutoAcDevice",
+            "methods": [
+              "setAcCompressorMode"
+            ],
+            "args": [
+              0,
+              1
+            ]
+          },
+          {
+            "caradapter": "hvac",
+            "methods": [
+              "setAcCompressorMode"
+            ],
+            "args": [
+              0,
+              1
+            ]
+          }
+        ],
+        "off": [
+          {
+            "bydauto": "ac.BYDAutoAcDevice",
+            "methods": [
+              "setAcCompressorMode"
+            ],
+            "args": [
+              0,
+              2
+            ]
+          },
+          {
+            "bydauto": "ac.BYDAutoAcDevice",
+            "methods": [
+              "stop"
+            ],
+            "args": [
+              0
+            ]
+          },
+          {
+            "caradapter": "hvac",
+            "methods": [
+              "stop"
+            ],
+            "args": [
+              0
+            ]
+          }
+        ]
+      },
+      "_note2": "On this car, A/C on also starts the whole climate system (onAcStarted, fan 5). If the compressor-off request isn't confirmed, off falls back to stopping the climate, which is what BYD's own off does (onAcStoped, compressor 0).",
+      "labels": {
+        "off": 0,
+        "on": 1
+      }
+    },
+    "climate.recirc": {
+      "read": [
+        {
+          "caradapter": "hvac",
+          "methods": [
+            "getAcCycleMode"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "caradapter": "hvac",
+          "methods": [
+            "setAcCycleMode"
+          ]
+        }
+      ],
+      "labels": {
+        "on": 1,
+        "off": 2
+      },
+      "_note": "Read 2 with the climate off, so off = 2 (BYD's usual 1 = on, 2 = off)."
+    },
+    "climate.defrostFront": {
+      "read": [
+        {
+          "caradapter": "hvac",
+          "methods": [
+            "getAcDefrostState",
+            "getAcDefrostStateFront"
+          ]
+        },
+        {
+          "bydauto": "ac.BYDAutoAcDevice",
+          "methods": [
+            "getAcDefrostState"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "caradapter": "hvac",
+          "methods": [
+            "setAcDefrostStateFront",
+            "setAcDefrostState"
+          ]
+        },
+        {
+          "bydauto": "ac.BYDAutoAcDevice",
+          "methods": [
+            "setAcDefrostState"
+          ]
+        }
+      ],
+      "labels": {
+        "off": [
+          1,
+          0
+        ],
+        "on": [
+          2
+        ]
+      },
+      "_note": "BYD HVAC: 1 = off, 2 = on. Checked against logcat on car."
+    },
+    "climate.defrostRear": {
+      "_note": "Verified 2026-11-07 from BYD's climate app: BYDAutoAcDevice.setAcDefrostState(device, area 2, state) with 1 = on, 0 = off; getAcDefrostState(2) reads the same. The wrapper turns state 1 -> 2 and 0 -> 1 and calls HvacAdapterManager.setElectricDefrostState, so the raw caradapter code is 2 = on, 1 = off (sending 1 was why the old map never switched it on).",
+      "read": [
+        {
+          "bydauto": "ac.BYDAutoAcDevice",
+          "methods": [
+            "getAcDefrostState"
+          ],
+          "args": [
+            2
+          ]
+        }
+      ],
+      "writeLabels": {
+        "on": [
+          {
+            "bydauto": "ac.BYDAutoAcDevice",
+            "methods": [
+              "setAcDefrostState"
+            ],
+            "args": [
+              0,
+              2,
+              1
+            ]
+          },
+          {
+            "caradapter": "hvac",
+            "methods": [
+              "setElectricDefrostState"
+            ],
+            "args": [
+              2
+            ]
+          }
+        ],
+        "off": [
+          {
+            "bydauto": "ac.BYDAutoAcDevice",
+            "methods": [
+              "setAcDefrostState"
+            ],
+            "args": [
+              0,
+              2,
+              0
+            ]
+          },
+          {
+            "caradapter": "hvac",
+            "methods": [
+              "setElectricDefrostState"
+            ],
+            "args": [
+              1
+            ]
+          }
+        ]
+      },
+      "labels": {
+        "off": 0,
+        "on": 1
+      }
+    },
+    "climate.maxCool": {
+      "read": [
+        {
+          "caradapter": "hvac",
+          "methods": [
+            "getAcMaxCoolingState",
+            "getMaxCoolingState"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "caradapter": "hvac",
+          "methods": [
+            "setAcMaxCoolingState"
+          ]
+        }
+      ],
+      "labels": {
+        "on": 1,
+        "off": 2
+      },
+      "_note": "Read 2 with the climate off, so off = 2 (BYD's usual 1 = on, 2 = off)."
+    },
+    "seat.heatDriver": {
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getSeatHeatingStateDriver"
+          ]
+        },
+        {
+          "bydauto": "seat.BYDAutoSeatDevice",
+          "methods": [
+            "getSeatHeatingState"
+          ],
+          "args": [
+            1
+          ]
+        }
+      ],
+      "writeLabels": {
+        "off": [
+          {
+            "caradapter": "setting",
+            "methods": [
+              "setSeatHeatingStateDriver"
+            ],
+            "args": [
+              3
+            ]
+          }
+        ],
+        "low": [
+          {
+            "caradapter": "setting",
+            "methods": [
+              "setSeatHeatingStateDriver"
+            ],
+            "args": [
+              2
+            ]
+          }
+        ],
+        "high": [
+          {
+            "caradapter": "setting",
+            "methods": [
+              "setSeatHeatingStateDriver"
+            ],
+            "args": [
+              1
+            ]
+          }
+        ]
+      },
+      "labels": {
+        "off": 1,
+        "low": 2,
+        "high": 3
+      },
+      "_note": "READ: 1 = off, 2 = low, 3 = high. WRITE is reversed: setSeatHeatingStateDriver(3) = off, (2) = low, (1) = high. Driver heat and vent verified on the car 2026-11-08 (Low and Off confirmed by read-back); passenger not yet tested."
+    },
+    "seat.heatPassenger": {
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getSeatHeatingNotL1PState"
+          ]
+        },
+        {
+          "bydauto": "seat.BYDAutoSeatDevice",
+          "methods": [
+            "getSeatHeatingState"
+          ],
+          "args": [
+            2
+          ]
+        }
+      ],
+      "writeLabels": {
+        "off": [
+          {
+            "caradapter": "setting",
+            "methods": [
+              "setSeatHeatingStatePassenger"
+            ],
+            "args": [
+              3
+            ]
+          }
+        ],
+        "low": [
+          {
+            "caradapter": "setting",
+            "methods": [
+              "setSeatHeatingStatePassenger"
+            ],
+            "args": [
+              2
+            ]
+          }
+        ],
+        "high": [
+          {
+            "caradapter": "setting",
+            "methods": [
+              "setSeatHeatingStatePassenger"
+            ],
+            "args": [
+              1
+            ]
+          }
+        ]
+      },
+      "labels": {
+        "off": 1,
+        "low": 2,
+        "high": 3
+      },
+      "_note": "READ: 1 = off, 2 = low, 3 = high. WRITE is reversed: setSeatHeatingStatePassenger(3) = off, (2) = low, (1) = high. Driver heat and vent verified on the car 2026-11-08 (Low and Off confirmed by read-back); passenger not yet tested."
+    },
+    "seat.ventDriver": {
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getSeatVentilatingState"
+          ]
+        },
+        {
+          "bydauto": "seat.BYDAutoSeatDevice",
+          "methods": [
+            "getSeatVentilatingState"
+          ],
+          "args": [
+            1
+          ]
+        }
+      ],
+      "writeLabels": {
+        "off": [
+          {
+            "caradapter": "setting",
+            "methods": [
+              "setSeatVentilatingStateDriver"
+            ],
+            "args": [
+              3
+            ]
+          }
+        ],
+        "low": [
+          {
+            "caradapter": "setting",
+            "methods": [
+              "setSeatVentilatingStateDriver"
+            ],
+            "args": [
+              2
+            ]
+          }
+        ],
+        "high": [
+          {
+            "caradapter": "setting",
+            "methods": [
+              "setSeatVentilatingStateDriver"
+            ],
+            "args": [
+              1
+            ]
+          }
+        ]
+      },
+      "labels": {
+        "off": 1,
+        "low": 2,
+        "high": 3
+      },
+      "_note": "READ: 1 = off, 2 = low, 3 = high. WRITE is reversed: setSeatVentilatingStateDriver(3) = off, (2) = low, (1) = high. Driver heat and vent verified on the car 2026-11-08 (Low and Off confirmed by read-back); passenger not yet tested."
+    },
+    "seat.ventPassenger": {
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getSeatVentilatingNotL1PState"
+          ]
+        },
+        {
+          "bydauto": "seat.BYDAutoSeatDevice",
+          "methods": [
+            "getSeatVentilatingState"
+          ],
+          "args": [
+            2
+          ]
+        }
+      ],
+      "writeLabels": {
+        "off": [
+          {
+            "caradapter": "setting",
+            "methods": [
+              "setSeatVentilatingStatePassenger"
+            ],
+            "args": [
+              3
+            ]
+          }
+        ],
+        "low": [
+          {
+            "caradapter": "setting",
+            "methods": [
+              "setSeatVentilatingStatePassenger"
+            ],
+            "args": [
+              2
+            ]
+          }
+        ],
+        "high": [
+          {
+            "caradapter": "setting",
+            "methods": [
+              "setSeatVentilatingStatePassenger"
+            ],
+            "args": [
+              1
+            ]
+          }
+        ]
+      },
+      "labels": {
+        "off": 1,
+        "low": 2,
+        "high": 3
+      },
+      "_note": "READ: 1 = off, 2 = low, 3 = high. WRITE is reversed: setSeatVentilatingStatePassenger(3) = off, (2) = low, (1) = high. Driver heat and vent verified on the car 2026-11-08 (Low and Off confirmed by read-back); passenger not yet tested."
+    },
+    "vehicle.batteryPct": {
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getElecPercentageValue"
+          ]
+        },
+        {
+          "bydauto": "statistic.BYDAutoStatisticDevice",
+          "methods": [
+            "getElecPercentageValue"
+          ]
+        },
+        {
+          "caradapter": "power",
+          "methods": [
+            "getElecPercentageValue",
+            "getSocValue",
+            "getSOC"
+          ]
+        }
+      ]
+    },
+    "vehicle.evRangeKm": {
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getElecDrivingRangeValue"
+          ]
+        },
+        {
+          "bydauto": "statistic.BYDAutoStatisticDevice",
+          "methods": [
+            "getElecDrivingRangeValue"
+          ]
+        },
+        {
+          "caradapter": "power",
+          "methods": [
+            "getElecDrivingRangeValue"
+          ]
+        }
+      ]
+    },
+    "vehicle.fuelPct": {
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getFuelPercentageValue"
+          ]
+        },
+        {
+          "bydauto": "statistic.BYDAutoStatisticDevice",
+          "methods": [
+            "getFuelPercentageValue"
+          ]
+        },
+        {
+          "caradapter": "power",
+          "methods": [
+            "getFuelPercentageValue"
+          ]
+        }
+      ]
+    },
+    "vehicle.fuelRangeKm": {
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getFuelDrivingRangeValue"
+          ]
+        },
+        {
+          "bydauto": "statistic.BYDAutoStatisticDevice",
+          "methods": [
+            "getFuelDrivingRangeValue"
+          ]
+        },
+        {
+          "caradapter": "power",
+          "methods": [
+            "getFuelDrivingRangeValue"
+          ]
+        }
+      ]
+    },
+    "vehicle.odometerKm": {
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getTotalMileageValue"
+          ]
+        },
+        {
+          "bydauto": "statistic.BYDAutoStatisticDevice",
+          "methods": [
+            "getTotalMileageValue"
+          ]
+        }
+      ]
+    },
+    "vehicle.consumption": {
+      "read": [
+        {
+          "bydauto": "energy.BYDAutoEnergyDevice",
+          "methods": [
+            "getLast50KMElectricConAvg"
+          ]
+        },
+        {
+          "bydauto": "statistic.BYDAutoStatisticDevice",
+          "methods": [
+            "getTotalElecConPHMValue"
+          ]
+        },
+        {
+          "caradapter": "body",
+          "methods": [
+            "getTripLast50kmElectricConAvg",
+            "getLast50KmElectricConAvg"
+          ]
+        }
+      ]
+    },
+    "vehicle.gear": {
+      "read": [
+        {
+          "bydauto": "gearbox.BYDAutoGearboxDevice",
+          "methods": [
+            "getGear"
+          ]
+        },
+        {
+          "caradapter": "*",
+          "methods": [
+            "getGear",
+            "getGearPosition"
+          ]
+        }
+      ],
+      "labels": {
+        "P": 1,
+        "R": 2,
+        "N": 3,
+        "D": 4
+      }
+    },
+    "vehicle.powerMode": {
+      "read": [
+        {
+          "bydauto": "energy.BYDAutoEnergyDevice",
+          "methods": [
+            "getOperationMode"
+          ]
+        }
+      ],
+      "labels": {
+        "EV priority": 1,
+        "Hybrid": 2
+      }
+    },
+    "tyre.fl": {
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getTyrePressureValueByTypeLf"
+          ]
+        },
+        {
+          "bydauto": "tyre.BYDAutoTyreDevice",
+          "methods": [
+            "getTyrePressureValueByType"
+          ],
+          "args": [
+            1
+          ]
+        }
+      ],
+      "_note": "Pressure in psi. The car reports psi x 10 (read 372 = 37.2 psi).",
+      "scale": 0.1
+    },
+    "tyre.fr": {
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getTyrePressureValueByTypeRf"
+          ]
+        },
+        {
+          "bydauto": "tyre.BYDAutoTyreDevice",
+          "methods": [
+            "getTyrePressureValueByType"
+          ],
+          "args": [
+            2
+          ]
+        }
+      ],
+      "_note": "Pressure in psi. The car reports psi x 10 (read 372 = 37.2 psi).",
+      "scale": 0.1
+    },
+    "tyre.rl": {
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getTyrePressureValueByTypeLb"
+          ]
+        },
+        {
+          "bydauto": "tyre.BYDAutoTyreDevice",
+          "methods": [
+            "getTyrePressureValueByType"
+          ],
+          "args": [
+            3
+          ]
+        }
+      ],
+      "_note": "Pressure in psi. The car reports psi x 10 (read 372 = 37.2 psi).",
+      "scale": 0.1
+    },
+    "tyre.rr": {
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getTyrePressureValueByTypeRb"
+          ]
+        },
+        {
+          "bydauto": "tyre.BYDAutoTyreDevice",
+          "methods": [
+            "getTyrePressureValueByType"
+          ],
+          "args": [
+            4
+          ]
+        }
+      ],
+      "_note": "Pressure in psi. The car reports psi x 10 (read 372 = 37.2 psi).",
+      "scale": 0.1
+    },
+    "drive.roadMode": {
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getGoalRoadMode"
+          ]
+        },
+        {
+          "caradapter": "body",
+          "methods": [
+            "getRoadSurfaceMode",
+            "getRoadSurfaceModeNormal"
+          ]
+        },
+        {
+          "bydauto": "energy.BYDAutoEnergyDevice",
+          "methods": [
+            "getRoadSurfaceMode",
+            "getRoadSurfaceModeNormal"
+          ]
+        },
+        {
+          "caradapter": "*",
+          "methods": [
+            "getGoalRoadMode",
+            "getRoadMode"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "setGoalRoadMode"
+          ]
+        },
+        {
+          "caradapter": "*",
+          "methods": [
+            "setGoalRoadMode"
+          ]
+        }
+      ],
+      "labels": {
+        "Normal": 1,
+        "Snow": 2,
+        "Mud": 3,
+        "Sand": 4,
+        "Mountain": 5
+      },
+      "_note": "Terrain mode (getGoalRoadMode). VERIFIED 14 Nov 2026 by cycling the car's scroll wheel: Normal 1, Snow 2, Mud 3, Sand 4, Mountain 5. Eco and Sport do NOT change this code (it stays 1): they are the separate drive.mode signal. Wading is switched on in BYD settings and its code is not known. READ ONLY in SharkOS-CE: terrain modes are chosen on the scroll wheel (BYD confirms some of them, which change safety systems)."
+    },
+    "drive.hillDescent": {
+      "_note": "Verified 2026-11-07 with BYD's ADAS > Safety Assist > Hill Descent Control switch: caradapter.assist.getSteepDescentSlowDownState reads 1 = on, 0 = off. caradapter.cabin.getHdcState stayed 0 with the switch on (probably 'HDC actively braking'), so it isn't read here. BYDAutoADASDevice.setHDCState is an empty stub. BYDAutoDiPilotDevice.setSteepDescentSlowDownState passes straight through to the assist adapter. Writes: 1 = on (confirmed), 0 = ignored (no request), so off writes 2.",
+      "read": [
+        {
+          "caradapter": "assist",
+          "methods": [
+            "getSteepDescentSlowDownState"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "caradapter": "assist",
+          "methods": [
+            "setSteepDescentSlowDownState"
+          ]
+        }
+      ],
+      "labels": {
+        "off": [
+          2,
+          0
+        ],
+        "on": 1
+      }
+    },
+    "advanced.laneAssist": {
+      "_note": "BydCarSettings ActiveSafeViewModel: getLaneAssistType reads 0 = off, 1 = warning, 2 = prevention, 3 = all (on). Writing uses BYD CAN command codes: setLaneAssistType(1) = off, setLaneAssistType(4) = all (on), setLaneAssistType(5) = prevention, setLaneAssistType(2) = warning.",
+      "read": [
+        {
+          "caradapter": "assist",
+          "methods": [
+            "getLaneAssistType"
+          ]
+        },
+        {
+          "bydauto": "dipilot.BYDAutoDiPilotDevice",
+          "methods": [
+            "getLaneAssistType"
+          ]
+        },
+        {
+          "bydauto": "adas.BYDAutoADASDevice",
+          "methods": [
+            "getLKSMode",
+            "getLDSWType"
+          ]
+        }
+      ],
+      "writeLabels": {
+        "off": [
+          {
+            "bydauto": "dipilot.BYDAutoDiPilotDevice",
+            "methods": [
+              "setLaneAssistType"
+            ],
+            "args": [
+              1
+            ]
+          },
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setLaneAssistType"
+            ],
+            "args": [
+              1
+            ]
+          },
+          {
+            "bydauto": "dipilot.BYDAutoDiPilotDevice",
+            "methods": [
+              "setLaneAssistType"
+            ],
+            "args": [
+              0
+            ]
+          },
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setLaneAssistType"
+            ],
+            "args": [
+              0
+            ]
+          }
+        ],
+        "on": [
+          {
+            "bydauto": "dipilot.BYDAutoDiPilotDevice",
+            "methods": [
+              "setLaneAssistType"
+            ],
+            "args": [
+              4
+            ]
+          },
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setLaneAssistType"
+            ],
+            "args": [
+              4
+            ]
+          },
+          {
+            "bydauto": "dipilot.BYDAutoDiPilotDevice",
+            "methods": [
+              "setLaneAssistType"
+            ],
+            "args": [
+              5
+            ]
+          },
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setLaneAssistType"
+            ],
+            "args": [
+              2
+            ]
+          }
+        ]
+      },
+      "labels": {
+        "off": [
+          0
+        ],
+        "on": [
+          3,
+          2,
+          1
+        ]
+      }
+    },
+    "advanced.speedLimitWarning": {
+      "_note": "Intelligent Speed Limit Warning (BYD ADAS > Safety Assist > Traffic Sign Recognition). Verified on the car 16 Nov 2026. READ getIntelligentSpeedLimitAlert2B4State: 1 = on, 0 = off (getIsliWarningLevelSwitchStatus moves the other way, 2 = on, 1 = off, but its setter does NOT change the car). WRITE setIntelligentSpeedLimitAlertState: 2 = on, 1 = off (confirmed by read-back). The car reports the change 3-5 s after the write, hence confirmMs 7000. The old entry read the ISLI value with inverted labels and wrote ISLI/Alert 2 for 'off', which switched the warning ON.",
+      "read": [
+        {
+          "caradapter": "assist",
+          "methods": [
+            "getIntelligentSpeedLimitAlert2B4State"
+          ]
+        },
+        {
+          "bydauto": "dipilot.BYDAutoDiPilotDevice",
+          "methods": [
+            "getIntelligentSpeedLimitAlert2B4State"
+          ]
+        }
+      ],
+      "writeLabels": {
+        "on": [
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setIntelligentSpeedLimitAlertState"
+            ],
+            "args": [
+              2
+            ]
+          }
+        ],
+        "off": [
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setIntelligentSpeedLimitAlertState"
+            ],
+            "args": [
+              1
+            ]
+          }
+        ]
+      },
+      "labels": {
+        "off": [
+          0
+        ],
+        "on": [
+          1
+        ]
+      },
+      "confirmMs": 7000
+    },
+    "advanced.trafficSign": {
+      "_note": "Traffic Sign Recognition master switch (BYD ADAS > Safety Assist). Found 16 Nov 2026 by toggling BYD's switch in the explorer: READ getTrafficSignRecognize2B4State 1 = on, 0 = off (the dash sign value getTrafficSignRecognitionValue goes to 255 when off). WRITE setTrafficSignRecognizeState; encoding tried in order and confirmed by read-back (the car answers 3-5 s late). setSlifState does nothing. Switching it off greys out the three speed-limit options in BYD's screen.",
+      "confirmMs": 7000,
+      "read": [
+        {
+          "caradapter": "assist",
+          "methods": [
+            "getTrafficSignRecognize2B4State"
+          ]
+        },
+        {
+          "bydauto": "dipilot.BYDAutoDiPilotDevice",
+          "methods": [
+            "getTrafficSignRecognize2B4State"
+          ]
+        }
+      ],
+      "writeLabels": {
+        "on": [
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setTrafficSignRecognizeState"
+            ],
+            "args": [
+              2
+            ]
+          },
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setTrafficSignRecognizeState"
+            ],
+            "args": [
+              1
+            ]
+          },
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setTrafficSignRecognizeState"
+            ],
+            "args": [
+              0
+            ]
+          }
+        ],
+        "off": [
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setTrafficSignRecognizeState"
+            ],
+            "args": [
+              1
+            ]
+          },
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setTrafficSignRecognizeState"
+            ],
+            "args": [
+              2
+            ]
+          },
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setTrafficSignRecognizeState"
+            ],
+            "args": [
+              0
+            ]
+          }
+        ]
+      },
+      "labels": {
+        "off": [
+          0
+        ],
+        "on": [
+          1
+        ]
+      }
+    },
+    "advanced.speedLimitControl": {
+      "_note": "Intelligent Speed Limit Control (BYD ADAS > Safety Assist). Verified 16 Nov 2026 read: ON = getIntelligentSpeedLimitControl32FState 1, OFF = 0 (getIntelligentSpeedLimitControlStateSecond moves with it). Write encoding is tried in order and confirmed by read-back.",
+      "read": [
+        {
+          "caradapter": "assist",
+          "methods": [
+            "getIntelligentSpeedLimitControl32FState"
+          ]
+        },
+        {
+          "bydauto": "dipilot.BYDAutoDiPilotDevice",
+          "methods": [
+            "getIntelligentSpeedLimitControl32FState"
+          ]
+        }
+      ],
+      "writeLabels": {
+        "on": [
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setIntelligentSpeedLimitControlState"
+            ],
+            "args": [
+              2
+            ]
+          },
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setIntelligentSpeedLimitControlState"
+            ],
+            "args": [
+              1
+            ]
+          },
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setIntelligentSpeedLimitControlState"
+            ],
+            "args": [
+              0
+            ]
+          }
+        ],
+        "off": [
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setIntelligentSpeedLimitControlState"
+            ],
+            "args": [
+              1
+            ]
+          },
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setIntelligentSpeedLimitControlState"
+            ],
+            "args": [
+              2
+            ]
+          },
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setIntelligentSpeedLimitControlState"
+            ],
+            "args": [
+              0
+            ]
+          }
+        ]
+      },
+      "labels": {
+        "off": [
+          0
+        ],
+        "on": [
+          1
+        ]
+      },
+      "confirmMs": 7000
+    },
+    "advanced.speedLimitTone": {
+      "_note": "Speed Limit Change Prompt Tone (BYD ADAS > Safety Assist). Verified 16 Nov 2026 read: getTsrLitSpdChgSwitchState 0 = tone ON, 1 = tone OFF (inverted). Write encoding is tried in order and confirmed by read-back.",
+      "read": [
+        {
+          "caradapter": "assist",
+          "methods": [
+            "getTsrLitSpdChgSwitchState"
+          ]
+        },
+        {
+          "bydauto": "dipilot.BYDAutoDiPilotDevice",
+          "methods": [
+            "getTSRLitSpdChgSwitchState"
+          ]
+        }
+      ],
+      "writeLabels": {
+        "on": [
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setTsrLitSpdChgSwitchState"
+            ],
+            "args": [
+              2
+            ]
+          },
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setTsrLitSpdChgSwitchState"
+            ],
+            "args": [
+              1
+            ]
+          },
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setTsrLitSpdChgSwitchState"
+            ],
+            "args": [
+              0
+            ]
+          }
+        ],
+        "off": [
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setTsrLitSpdChgSwitchState"
+            ],
+            "args": [
+              1
+            ]
+          },
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setTsrLitSpdChgSwitchState"
+            ],
+            "args": [
+              2
+            ]
+          },
+          {
+            "caradapter": "assist",
+            "methods": [
+              "setTsrLitSpdChgSwitchState"
+            ],
+            "args": [
+              0
+            ]
+          }
+        ]
+      },
+      "labels": {
+        "off": [
+          1
+        ],
+        "on": [
+          0
+        ]
+      },
+      "confirmMs": 7000
+    },
+    "advanced.driverMonitoring": {
+      "_note": "BYDAutoDiPilotDevice.setDmsSwitchStatus / CarAssistAdapterManager.setDmsSwitchStatus uses 1 = on, 2 = off.",
+      "read": [
+        {
+          "caradapter": "assist",
+          "methods": [
+            "getDmsSwitchStatus",
+            "getDriverStatusWarningState"
+          ]
+        },
+        {
+          "bydauto": "dipilot.BYDAutoDiPilotDevice",
+          "methods": [
+            "getDmsSwitchStatus",
+            "getDriverStatusWarningState"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "bydauto": "dipilot.BYDAutoDiPilotDevice",
+          "methods": [
+            "setDmsSwitchStatus",
+            "setDriverStatusWarningSwitch",
+            "setFatigueMonitoringStatus",
+            "setDistractionMonitoringAttention"
+          ]
+        },
+        {
+          "caradapter": "assist",
+          "methods": [
+            "setDmsSwitchStatus",
+            "setDriverStatusWarningSwitch",
+            "setFatigueMonitoringStatus",
+            "setDistractionMonitoringAttention"
+          ]
+        }
+      ],
+      "labels": {
+        "off": [
+          2,
+          0
+        ],
+        "on": [
+          1
+        ]
+      }
+    },
+    "advanced.childPresence": {
+      "_note": "BydCarSettings CockpitPerFragment: BYDAutoDiPilotDevice.getCpdStatus / setCpdStatus uses 1 = on (or 3 = normal/delay on), 2 = off.",
+      "read": [
+        {
+          "caradapter": "assist",
+          "methods": [
+            "getCpdStatus"
+          ]
+        },
+        {
+          "bydauto": "dipilot.BYDAutoDiPilotDevice",
+          "methods": [
+            "getCpdStatus"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getCpdImsSwitchState"
+          ]
+        },
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "getCpdImsSwitchState"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "bydauto": "dipilot.BYDAutoDiPilotDevice",
+          "methods": [
+            "setCpdStatus"
+          ]
+        },
+        {
+          "caradapter": "assist",
+          "methods": [
+            "setCpdStatus"
+          ]
+        },
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "setCpdImsSwitchState"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "setCpdImsSwitchState"
+          ]
+        }
+      ],
+      "labels": {
+        "off": [
+          2,
+          0
+        ],
+        "on": [
+          1,
+          3
+        ]
+      }
+    },
+    "advanced.dashMap": {
+      "_note": "BydCarSettings InstrumentFragment adds +1 to button index: 1 = Simple, 2 = Full screen via BYDAutoInstrumentDevice.setInsNaviDisplayMode (requires BYDAUTO_INSTRUMENT_SET).",
+      "read": [
+        {
+          "bydauto": "instrument.BYDAutoInstrumentDevice",
+          "methods": [
+            "getInsNaviDisplayMode",
+            "getINSNavDisplayMode"
+          ]
+        },
+        {
+          "caradapter": "cabin",
+          "methods": [
+            "getINSNavDisplayMode",
+            "getINSCenterDisplay"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "bydauto": "instrument.BYDAutoInstrumentDevice",
+          "methods": [
+            "setInsNaviDisplayMode",
+            "setINSNavDisplayMode"
+          ]
+        },
+        {
+          "caradapter": "cabin",
+          "methods": [
+            "setINSNavDisplayMode",
+            "setINSCenterDisplay"
+          ]
+        }
+      ],
+      "labels": {
+        "Simple": [
+          2,
+          1,
+          0
+        ],
+        "Full screen": [
+          4
+        ]
+      }
+    },
+    "vehicle.fuelAvg": {
+      "_note": "L/100 km over the last 50 km. Seen on the car: 6.9.",
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getTripLast50kmFuelConAvg",
+            "getTripLast50kmFuelConAvgValue"
+          ]
+        }
+      ]
+    },
+    "vehicle.speedKmh": {
+      "_note": "CarSensorServiceImpl: getCurrentSpeed reads CarPropertyValue 0x21406006 (instrument cluster speed in km/h); getSpeedValue reads 0x21604601 (CAN wheel/ESP speed in km/h); getIpbVehicleSpeedStatusR reads CarVendorSpeedManager.",
+      "read": [
+        {
+          "caradapter": "sensor",
+          "methods": [
+            "getCurrentSpeed",
+            "getSpeedValue",
+            "getIpbVehicleSpeedStatusR"
+          ]
+        },
+        {
+          "bydauto": "speed.BYDAutoSpeedDevice",
+          "methods": [
+            "getCurrentSpeed"
+          ]
+        }
+      ]
+    },
+    "vehicle.speedLimitKmh": {
+      "_note": "Traffic Sign Recognition (TSR) road speed limit in km/h (255 = no sign recognized / unavailable). Observed in CarExplorer via caradapter.general.getTrafficSignRecognitionValue.",
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getTrafficSignRecognitionValue"
+          ]
+        }
+      ]
+    },
+    "vehicle.powerKw": {
+      "_note": "Unverified: body.getEnginePower read -5 while the car was charging, so it looks like drive power in kW (negative = regen/charging). Check it while driving.",
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getEnginePower"
+          ]
+        }
+      ]
+    },
+    "vehicle.chargingPower": {
+      "_note": "AC/DC charging power in kW. caradapter.body.getChargingPower returns kW (e.g. 5.3) when plugged in, or a sentinel ~359.4 when unplugged.",
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getChargingPower"
+          ]
+        }
+      ]
+    },
+    "vehicle.chargingGun": {
+      "_note": "1 = connected/plugged in, 0 = unplugged/disconnected.",
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getChargingGunState"
+          ]
+        }
+      ],
+      "labels": {
+        "unplugged": 0,
+        "plugged": 1
+      }
+    },
+    "vehicle.dischargePower": {
+      "_note": "V2L external discharge power in kW. caradapter.cabin.getExternalChargingPower returns W, scaled by 0.001 to kW.",
+      "read": [
+        {
+          "caradapter": "cabin",
+          "methods": [
+            "getExternalChargingPower"
+          ]
+        },
+        {
+          "bydauto": "instrument.BYDAutoInstrumentDevice",
+          "methods": [
+            "getExternalChargingPower"
+          ]
+        }
+      ],
+      "scale": 0.001
+    },
+    "vehicle.brake": {
+      "_note": "Unverified encoding: read 0 with the pedal up.",
+      "read": [
+        {
+          "caradapter": "cabin",
+          "methods": [
+            "getBrakePedalState",
+            "getBrakePedalStatus"
+          ]
+        }
+      ],
+      "labels": {
+        "off": 0,
+        "on": 1
+      }
+    },
+    "climate.outsideTemp": {
+      "_note": "Read 30 on the car.",
+      "read": [
+        {
+          "caradapter": "hvac",
+          "methods": [
+            "getTempratureOut"
+          ]
+        }
+      ]
+    },
+    "climate.insideTemp": {
+      "_note": "Guess: no inside-temperature getter found in the 5 Nov export.",
+      "read": [
+        {
+          "caradapter": "hvac",
+          "methods": [
+            "getTempratureIn",
+            "getTempratureInCar",
+            "getInCarTemperature"
+          ]
+        }
+      ]
+    },
+    "body.locked": {
+      "_note": "BYD's own screen said Unlocked while this read 1, so 1 = unlocked. Locked = 2 is assumed.",
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getDoorLockStatusRightFront",
+            "getDoorLockStatusLeftRear"
+          ]
+        }
+      ],
+      "labels": {
+        "unlocked": 1,
+        "locked": 2
+      }
+    },
+    "light.lowBeam": {
+      "_note": "Verified 2026-11-07: switching the headlights off and on logged LIGHT_LOW_BEAM_LIGHT 2 then 1, so 1 = on, 2 = off (the car keeps them on when it's dark, e.g. in a garage).",
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getLightLowBeamStatus"
+          ]
+        }
+      ],
+      "labels": {
+        "on": 1,
+        "off": 2
+      }
+    },
+    "light.highBeam": {
+      "_note": "Unverified encoding: read 2 while parked.",
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getLightHighBeam"
+          ]
+        }
+      ],
+      "labels": {
+        "on": 1,
+        "off": 2
+      }
+    },
+    "light.turnSignal": {
+      "_note": "Verified 2026-11-07 on the car (LightManagerImpl onTurnLightStateChanged + Car explorer): 1 = off, 2 = left, 4 = right, 6 = hazards (bit flags). Steady while the bulbs flash. body.getLightLeftTurnSignal / getLightRightTurnSignal stayed 0 throughout, so they aren't used.",
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getTurnLightState"
+          ]
+        },
+        {
+          "bydauto": "light.BYDAutoLightDevice",
+          "methods": [
+            "getTurnLightState"
+          ]
+        }
+      ],
+      "labels": {
+        "off": [
+          1,
+          0
+        ],
+        "left": 2,
+        "right": 4,
+        "hazard": 6
+      }
+    },
+    "light.brakeLamp": {
+      "_note": "Verified 2026-11-07 on the car (onStopLightStateChanged while pressing the brake): caradapter.body.getStopLightState 1 = brake lights on, 3 = off. Drives the brake lights in the car picture.",
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getStopLightState"
+          ]
+        }
+      ],
+      "labels": {
+        "on": 1,
+        "off": [
+          3,
+          0,
+          2
+        ]
+      }
+    },
+    "door.driver": {
+      "_note": "caradapter.cabin.isDriverDoorOpen (boolean, read as 1/0). All read false with the doors shut (7 Nov). Open = 1 to confirm on the car.",
+      "read": [
+        {
+          "caradapter": "cabin",
+          "methods": [
+            "isDriverDoorOpen"
+          ]
+        }
+      ],
+      "labels": {
+        "closed": 0,
+        "open": 1
+      }
+    },
+    "door.passenger": {
+      "read": [
+        {
+          "caradapter": "cabin",
+          "methods": [
+            "isPassengerDoorOpen"
+          ]
+        }
+      ],
+      "labels": {
+        "closed": 0,
+        "open": 1
+      }
+    },
+    "door.rearLeft": {
+      "read": [
+        {
+          "caradapter": "cabin",
+          "methods": [
+            "isRowTwoLeftDoorOpen"
+          ]
+        }
+      ],
+      "labels": {
+        "closed": 0,
+        "open": 1
+      }
+    },
+    "door.rearRight": {
+      "read": [
+        {
+          "caradapter": "cabin",
+          "methods": [
+            "isRowTwoRightDoorOpen"
+          ]
+        }
+      ],
+      "labels": {
+        "closed": 0,
+        "open": 1
+      }
+    },
+    "door.tailgate": {
+      "read": [
+        {
+          "caradapter": "cabin",
+          "methods": [
+            "isRearDoorOpen"
+          ]
+        }
+      ],
+      "labels": {
+        "closed": 0,
+        "open": 1
+      }
+    },
+    "door.bonnet": {
+      "read": [
+        {
+          "caradapter": "cabin",
+          "methods": [
+            "isHoodDoorOpen"
+          ]
+        }
+      ],
+      "labels": {
+        "closed": 0,
+        "open": 1
+      }
+    },
+    "climate.airflow": {
+      "_note": "Verified 2026-11-07 from BYD's climate app (HvacListener onAcWindModeChanged): 1 = face, 2 = face + feet, 3 = feet, 4 = feet + windscreen, 6 = face + feet + windscreen. BYDAutoAcDevice passes the value straight through to HvacAdapterManager.setAcWindMode(device, mode).",
+      "read": [
+        {
+          "bydauto": "ac.BYDAutoAcDevice",
+          "methods": [
+            "getAcWindMode"
+          ]
+        },
+        {
+          "caradapter": "hvac",
+          "methods": [
+            "getAcWindMode"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "bydauto": "ac.BYDAutoAcDevice",
+          "methods": [
+            "setAcWindMode"
+          ]
+        },
+        {
+          "bydauto": "ac.BYDAutoAcDevice",
+          "methods": [
+            "setAcWindMode"
+          ],
+          "args": [
+            0
+          ]
+        },
+        {
+          "caradapter": "hvac",
+          "methods": [
+            "setAcWindMode"
+          ]
+        }
+      ],
+      "labels": {
+        "face": 1,
+        "faceFeet": 2,
+        "feet": 3
+      }
+    },
+    "vehicle.rangeKm": {
+      "_note": "Combined range. Read 288 on the car (43 EV + 245 fuel).",
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getDrivingRangeAll"
+          ]
+        }
+      ]
+    },
+    "vehicle.batteryHealth": {
+      "_note": "Battery health %, read 97.",
+      "read": [
+        {
+          "caradapter": "cabin",
+          "methods": [
+            "getBatteryHealthStatus"
+          ]
+        }
+      ]
+    },
+    "display.dayNight": {
+      "_note": "Car's day/night mode, read 1 at 10 am but -1 at 8 pm on 16 Nov 2026 (so unreliable). The Auto theme uses it only when it reads 1 or 2, otherwise Android's UI mode, otherwise the clock. Unverified: night is assumed to be 2.",
+      "read": [
+        {
+          "bydauto": "instrument.BYDAutoInstrumentDevice",
+          "methods": [
+            "getDayNightMode"
+          ]
+        }
+      ],
+      "labels": {
+        "day": 1,
+        "night": 2
+      }
+    },
+    "trailer.limitSmall": {
+      "_note": "READ ONLY, value unverified: setting.getTrailerSmallLimitWeight (added 14 Nov to learn what the car reports; if it reads a plausible kg figure the Tow tab shows it).",
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getTrailerSmallLimitWeight"
+          ]
+        }
+      ]
+    },
+    "trailer.limitMedium": {
+      "_note": "READ ONLY, value unverified: setting.getTrailerMiddleLimitWeight.",
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getTrailerMiddleLimitWeight"
+          ]
+        }
+      ]
+    },
+    "trailer.limitLarge": {
+      "_note": "READ ONLY, value unverified: setting.getTrailerLargeLimitWeight.",
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getTrailerLargeLimitWeight"
+          ]
+        }
+      ]
+    },
+    "trailer.towingProhibited": {
+      "_note": "READ ONLY, encoding unverified: setting.getTowingProhibitedState.",
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getTowingProhibitedState"
+          ]
+        }
+      ]
+    },
+    "wading.state": {
+      "_note": "READ ONLY, encoding unverified: setting.getWadingPatternStateTips (0 parked).",
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getWadingPatternStateTips"
+          ]
+        }
+      ]
+    },
+    "wading.speedTip": {
+      "_note": "READ ONLY, encoding unverified: setting.getWadingPatternSpeedTips.",
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getWadingPatternSpeedTips"
+          ]
+        }
+      ]
+    },
+    "chassis.espOffKey": {
+      "_note": "READ ONLY SAFETY SYSTEM, encoding unverified: assist.getEspOffKeyStatus (should show whether the ESP-off button is pressed). Never write.",
+      "read": [
+        {
+          "caradapter": "assist",
+          "methods": [
+            "getEspOffKeyStatus"
+          ]
+        }
+      ]
+    },
+    "chassis.hdcState": {
+      "_note": "READ ONLY, encoding unverified: cabin.getHdcState stayed 0 with the HDC switch on (probably 'HDC actively braking').",
+      "read": [
+        {
+          "caradapter": "cabin",
+          "methods": [
+            "getHdcState"
+          ]
+        }
+      ]
+    },
+    "adas.reverseRadar": {
+      "_note": "READ ONLY, value unverified: BYDAutoRadarDevice.getReverseRadarSwitchState().",
+      "read": [
+        {
+          "bydauto": "radar.BYDAutoRadarDevice",
+          "methods": [
+            "getReverseRadarSwitchState"
+          ]
+        }
+      ]
+    },
+    "cabin.pm25": {
+      "_note": "READ ONLY, value unverified: BYDAutoPM2p5Device.getPM2p5Value().",
+      "read": [
+        {
+          "bydauto": "pm2p5.BYDAutoPM2p5Device",
+          "methods": [
+            "getPM2p5Value"
+          ]
+        }
+      ]
+    },
+    "cabin.doorLight": {
+      "_note": "READ ONLY, value unverified: Auto indoor light (BYDAutoLightDevice.getDoorLightState).",
+      "read": [
+        {
+          "bydauto": "light.BYDAutoLightDevice",
+          "methods": [
+            "getDoorLightState"
+          ]
+        }
+      ]
+    },
+    "cabin.ambientLight": {
+      "_note": "READ ONLY, value unverified: Ambient light state (BYDAutoLightDevice.getAmbientState).",
+      "read": [
+        {
+          "bydauto": "light.BYDAutoLightDevice",
+          "methods": [
+            "getAmbientState"
+          ]
+        }
+      ]
+    },
+    "tbox.networkState": {
+      "_note": "READ ONLY, value unverified: T-Box cellular state (BYDAutoTBoxDevice.getTBoxNetworkState(0)).",
+      "read": [
+        {
+          "bydauto": "tbox.BYDAutoTBoxDevice",
+          "methods": [
+            "getTBoxNetworkState"
+          ],
+          "args": [
+            0
+          ]
+        }
+      ]
+    },
+    "health.oilLifetime": {
+      "_note": "READ ONLY, value unverified: Engine oil lifetime (caradapter.cabin.getOilLifetimeEngine).",
+      "read": [
+        {
+          "caradapter": "cabin",
+          "methods": [
+            "getOilLifetimeEngine"
+          ]
+        }
+      ]
+    },
+    "charging.v2lToggle": {
+      "_note": "READ ONLY, value unverified: V2L discharge toggle (BYDAutoChargingDevice.getDischargeToggle).",
+      "read": [
+        {
+          "bydauto": "charging.BYDAutoChargingDevice",
+          "methods": [
+            "getDischargeToggle"
+          ]
+        }
+      ]
+    },
+    "charging.v2lVoltage": {
+      "_note": "READ ONLY, value unverified: V2L discharge voltage (BYDAutoChargingDevice.getDischargeVoltage).",
+      "read": [
+        {
+          "bydauto": "charging.BYDAutoChargingDevice",
+          "methods": [
+            "getDischargeVoltage"
+          ]
+        }
+      ]
+    },
+    "charging.v2lCurrent": {
+      "_note": "READ ONLY, value unverified: V2L discharge current (BYDAutoChargingDevice.getDischargeElectric).",
+      "read": [
+        {
+          "bydauto": "charging.BYDAutoChargingDevice",
+          "methods": [
+            "getDischargeElectric"
+          ]
+        }
+      ]
+    },
+    "trip.aKm": {
+      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY. Trip A odometer, km. Read 6653.6 (5 Nov) then 6698.0 (7 Nov): +44.4, exactly the odometer change. Car Explorer exports.",
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getMileageNumberOne"
+          ]
+        }
+      ]
+    },
+    "trip.bKm": {
+      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY. Trip B odometer, km. Read 7462.4 then 7506.8 (+44.4, same as odometer).",
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getMileageNumberTwo"
+          ]
+        }
+      ]
+    },
+    "trip.drivingHours": {
+      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY, unverified meaning. general.getDrivingTimeValue(): float. Read 87.2 then 88.7, probably hours driven since a reset. Compare with getResetTripTimeHour (100 then 102).",
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getDrivingTimeValue"
+          ]
+        }
+      ]
+    },
+    "charging.timeLeftH": {
+      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY. body.getChargingRestTime(): int[] = [hours, minutes]. Read [2, 27] while AC charging at 5.3 kW (5 Nov), [255, 255] when not charging. The JSON reader keeps only element 0 (hours). Minutes need a small code change. Treat 255 as not charging.",
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getChargingRestTime"
+          ]
+        }
+      ]
+    },
+    "charging.portLock": {
+      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY, encoding unverified. body.getChargingPortLockRebackState(): int. Read 3 (5 Nov, gun in, charging) then 1 (7 Nov). Probably the charge-port lock state.",
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getChargingPortLockRebackState"
+          ]
+        }
+      ]
+    },
+    "vehicle.heading": {
+      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY, likely compass heading in degrees (0-359). cabin.getPositionDegree(): int. Read 269 then 271 when parked in the same place. cabin.getPositionStatus read 7 (fix quality?). Check while driving.",
+      "read": [
+        {
+          "caradapter": "cabin",
+          "methods": [
+            "getPositionDegree"
+          ]
+        }
+      ]
+    },
+    "belt.driver": {
+      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY, encoding unverified. Read 0 (5 Nov) then 1 (7 Nov). Rear belts also read 1 with nobody in the back, so 1 may mean unbuckled. Buckle and unbuckle to check. Alternative: general.getDriverBeltStatus.",
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getSafetyBeltStatusMain",
+            "getDriverBeltStatus"
+          ]
+        }
+      ]
+    },
+    "belt.passenger": {
+      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY, encoding unverified (read 1). Passenger occupancy: setting.getPassengerStatePassenger (read 1).",
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getSafetyBeltStatusDeputy"
+          ]
+        }
+      ]
+    },
+    "belt.rearLeft": {
+      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY, encoding unverified (read 1, seat empty). Alternative: setting.getLeftRearSafebeltStatus.",
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getSafetyBeltStatusLeftTwoRear"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getLeftRearSafebeltStatus"
+          ]
+        }
+      ]
+    },
+    "belt.rearMiddle": {
+      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY, encoding unverified (read 1, seat empty).",
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getSafetyBeltStatusMidTwoRear"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getCenterRearSafebeltStatus"
+          ]
+        }
+      ]
+    },
+    "belt.rearRight": {
+      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY, encoding unverified (read 1, seat empty).",
+      "read": [
+        {
+          "caradapter": "general",
+          "methods": [
+            "getSafetyBeltStatusRightTwoRear"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getRightRearSafebeltStatus"
+          ]
+        }
+      ]
+    },
+    "window.frontLeft": {
+      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY. Window open %, 0 = closed (read 0 with windows shut). The open-percent scale has not been checked with a window open. body.getWindowStateLeftFront read 1.",
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getWindowOpenPercentLeftFront"
+          ]
+        }
+      ]
+    },
+    "window.frontRight": {
+      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY. Window open %, 0 = closed.",
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getWindowOpenPercentRightFront"
+          ]
+        }
+      ]
+    },
+    "window.rearLeft": {
+      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY. Window open %, 0 = closed.",
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getWindowOpenPercentLeftRear"
+          ]
+        }
+      ]
+    },
+    "window.rearRight": {
+      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY. Window open %, 0 = closed.",
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getWindowOpenPercentRightRear"
+          ]
+        }
+      ]
+    },
+    "radar.frontLeft": {
+      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY. Parking-sensor obstacle distance. Read 0 when parked with nothing near; unit unverified (probably cm, 0 = nothing detected). Probe state read 150 on every sensor (likely idle or not active). Check in reverse near a wall.",
+      "read": [
+        {
+          "caradapter": "sensor",
+          "methods": [
+            "getRadarObstacleDistanceFl"
+          ]
+        }
+      ]
+    },
+    "radar.frontRight": {
+      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY. See radar.frontLeft.",
+      "read": [
+        {
+          "caradapter": "sensor",
+          "methods": [
+            "getRadarObstacleDistanceFr"
+          ]
+        }
+      ]
+    },
+    "radar.rearLeft": {
+      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY. See radar.frontLeft.",
+      "read": [
+        {
+          "caradapter": "sensor",
+          "methods": [
+            "getRadarObstacleDistanceRl"
+          ]
+        }
+      ]
+    },
+    "radar.rearMidLeft": {
+      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY. See radar.frontLeft.",
+      "read": [
+        {
+          "caradapter": "sensor",
+          "methods": [
+            "getRadarObstacleDistanceRml"
+          ]
+        }
+      ]
+    },
+    "radar.rearMidRight": {
+      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY. See radar.frontLeft.",
+      "read": [
+        {
+          "caradapter": "sensor",
+          "methods": [
+            "getRadarObstacleDistanceRmr"
+          ]
+        }
+      ]
+    },
+    "radar.rearRight": {
+      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY. See radar.frontLeft.",
+      "read": [
+        {
+          "caradapter": "sensor",
+          "methods": [
+            "getRadarObstacleDistanceRr"
+          ]
+        }
+      ]
+    },
+    "light.rearFog": {
+      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY, BYD style probably (1 = on, 2 = off). Read 2. Front: body.getLightFrontFog (read 0).",
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getLightRearFog"
+          ]
+        },
+        {
+          "bydauto": "light.BYDAutoLightDevice",
+          "methods": [
+            "getRearFogLightSwitchState"
+          ]
+        }
+      ]
+    },
+    "mirror.folded": {
+      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY. Exterior mirror fold state. Read 2 with mirrors out (probably 1 = folded, 2 = unfolded; unverified).",
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getAutoExternalRearMirrorFoldedState"
+          ]
+        },
+        {
+          "caradapter": "cabin",
+          "methods": [
+            "getAutoExternalRearMirrorFoldedState"
+          ]
+        }
+      ]
+    },
+    "power.undervoltage12v": {
+      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY, encoding unverified. body.getSystemUndervoltageStatus(): int. Read 1 (normal?). body.getBatteryVoltageLevel also read 1.",
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getSystemUndervoltageStatus"
+          ]
+        }
+      ]
+    },
+    "tyre.warning": {
+      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY. TPMS warning hint, read 0 (no warning). Per wheel: body.getTyrePressureWarnLeftFront/RightFront/LeftRear/RightRear (all 0). body.getTyreSystemState 0.",
+      "read": [
+        {
+          "caradapter": "body",
+          "methods": [
+            "getTyrePressureWarnHint"
+          ]
+        }
+      ]
+    }
+  }
+}

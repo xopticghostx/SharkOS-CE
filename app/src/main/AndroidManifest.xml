@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Only apps signed with SharkOS-CE's key (the wake helper, package tunein.player) can wake it. -->
+    <permission
+        android:name="com.sharkhome.launcher.permission.WAKE"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="com.sharkhome.launcher.permission.WAKE" />
+
+    <!-- Standard Android -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Status bar: "4G"/"5G" label next to the signal bars (the bars work without it) -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
+    <!-- Auto start + Advanced Settings restore -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
+    <!-- Car explorer: list the BYD / TS apps' services to find the driver-display link -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+
+    <!-- Bring the launcher to the front after start-up -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.REORDER_TASKS" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Lets the Install page read APK files to show their version; granted over local ADB. -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+
+    <!-- Android car service (used when the head unit offers it) -->
+    <uses-permission android:name="android.car.permission.CAR_INFO" />
+    <uses-permission android:name="android.car.permission.CAR_ENERGY" />
+    <uses-permission android:name="android.car.permission.CAR_ENERGY_PORTS" />
+    <uses-permission android:name="android.car.permission.CAR_POWERTRAIN" />
+    <uses-permission android:name="android.car.permission.CAR_EXTERIOR_ENVIRONMENT" />
+    <uses-permission android:name="android.car.permission.READ_CAR_DISPLAY_UNITS" />
+    <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_VOLUME" />
+    <!-- BYD audio permissions. Note: BYDAutoAudioDevice itself must NOT be loaded (needs system-only CAR_CONTROL_AUDIO_VOLUME and crashes the app). -->
+
+    <uses-permission android:name="android.permission.BYDAUTO_AUDIO_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_AUDIO_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_AUDIO_SET" />
+    <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_SETTINGS" />
+
+    <!-- CarPlay & Android Auto now-playing and session status (same as HomeSpace & BydLocalMedia) -->
+    <uses-permission android:name="car.permission.CARPLAY" />
+    <uses-permission android:name="car.permission.CARPLAY_APP" />
+    <uses-permission android:name="car.permission.ANDROIDAUTO" />
+    <uses-permission android:name="car.permission.ANDROIDAUTO_APP" />
+    <uses-permission android:name="car.permission.ANDROIDAUTO_PROJECT" />
+
+    <!-- BYD vehicle permissions for the device classes the app and Car Explorer read.
+         GET = read, SET = change, COMMON = connect. -->
+    <uses-permission android:name="android.permission.BYDAUTO_AC_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_AC_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_AC_SET" />
+    <uses-permission android:name="android.permission.BYDAUTO_ADAS_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_ADAS_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_ADAS_SET" />
+    <uses-permission android:name="android.permission.BYDAUTO_BODYWORK_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_BODYWORK_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_BODYWORK_SET" />
+    <uses-permission android:name="android.permission.BYDAUTO_CHARGING_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_CHARGING_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_CHARGING_SET" />
+    <uses-permission android:name="android.permission.BYDAUTO_DIPILOT_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_DIPILOT_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_DIPILOT_SET" />
+    <uses-permission android:name="android.permission.BYDAUTO_DMS_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_DMS_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_DMS_SET" />
+    <uses-permission android:name="android.permission.BYDAUTO_DOOR_LOCK_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_DOOR_LOCK_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_DOOR_LOCK_SET" />
+    <uses-permission android:name="android.permission.BYDAUTO_ENERGY_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_ENERGY_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_ENERGY_SET" />
+    <uses-permission android:name="android.permission.BYDAUTO_ENGINE_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_ENGINE_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_GEARBOX_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_GEARBOX_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_INSTRUMENT_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_INSTRUMENT_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_INSTRUMENT_SET" />
+    <uses-permission android:name="android.permission.BYDAUTO_LIGHT_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_LIGHT_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_LIGHT_SET" />
+    <uses-permission android:name="android.permission.BYDAUTO_LOCATION_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_LOCATION_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_PANORAMA_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_PANORAMA_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_PM2P5_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_PM2P5_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_POWER_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_POWER_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_POWER_SET" />
+    <uses-permission android:name="android.permission.BYDAUTO_RADAR_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_RADAR_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_REAR_VIEW_MIRROR_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_REAR_VIEW_MIRROR_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_REAR_VIEW_MIRROR_SET" />
+    <uses-permission android:name="android.permission.BYDAUTO_REMINDER_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_REMINDER_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_SAFETY_BELT_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_SAFETY_BELT_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_SENSOR_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_SENSOR_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_SENSOR_SET" />
+    <uses-permission android:name="android.permission.BYDAUTO_SETTING_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_SETTING_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_SETTING_SET" />
+    <uses-permission android:name="android.permission.BYDAUTO_SPEED_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_SPEED_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_STATISTIC_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_STATISTIC_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_TIME_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_TIME_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_TYRE_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_TYRE_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_VERSION_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_VERSION_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_OTA_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_OTA_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_YUN_GET" />
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="com.ts.lib.caradapter.ICarAdapterService" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="geo" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="google.navigation" />
+        </intent>
+        <package android:name="com.ts.appservice.caradapter" />
+        <package android:name="com.byd.hvac" />
+        <!-- Wake helper (see wakehelper/build.gradle.kts) -->
+        <package android:name="tunein.player" />
+    </queries>
+
+    <application
+        android:name=".SharkOsCeApp"
+        android:allowBackup="false"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@drawable/ic_launcher"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.SharkOSCE"
+        tools:targetApi="35">
+
+        <!-- Answers "install this APK" requests (files, links, other apps) with our own confirm screen. -->
+        <activity
+            android:name=".InstallRequestActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <action android:name="android.intent.action.INSTALL_PACKAGE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/vnd.android.package-archive" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+                <data android:mimeType="application/vnd.android.package-archive" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="file" />
+                <data android:scheme="content" />
+                <data android:mimeType="*/*" />
+                <data android:pathPattern=".*\\.apk" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:resizeableActivity="true"
+            android:stateNotNeeded="true"
+            android:windowSoftInputMode="adjustPan">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Auto start: runs from boot, restores Advanced Settings at start-up and on every wake.
+             Exported only to the wake helper (signature permission): BYD force-stops SharkOS-CE at every
+             standby, and the helper starts this service again when the display comes on. -->
+        <service
+            android:name=".StartupService"
+            android:exported="true"
+            android:permission="com.sharkhome.launcher.permission.WAKE"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Restores the driver's saved vehicle convenience settings after the head unit starts or wakes." />
+        </service>
+
+        <!-- Only system boot broadcasts reach this (they're protected, so other apps can't send them). -->
+        <receiver
+            android:name=".BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter android:priority="1000">
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="android.intent.action.REBOOT" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Only used to unlock media-session access; it never reads notifications. -->
+        <service
+            android:name=".media.MediaListenerService"
+            android:exported="true"
+            android:label="@string/media_access_label"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+    </application>
+</manifest>

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.19"
+        android:scaleY="0.19"
+        android:translateX="6.3"
+        android:translateY="3.2">
+        <path android:pathData="M150,340 C160,290 214,200 296,120 C288,200 300,280 352,340 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="150"
+                    android:startY="230"
+                    android:endX="352"
+                    android:endY="230"
+                    android:type="linear">
+                    <item android:offset="0" android:color="#FF0F2A57" />
+                    <item android:offset="1" android:color="#FF0B1D3D" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        <path
+            android:pathData="M158,326 C172,284 220,204 292,130"
+            android:strokeColor="#992F56A6"
+            android:strokeWidth="4"
+            android:strokeLineCap="round" />
+        <path
+            android:pathData="M298,128 C290,204 302,282 348,334"
+            android:strokeColor="#73000000"
+            android:strokeWidth="6"
+            android:strokeLineCap="round" />
+        <path
+            android:fillColor="#F21D4F7C"
+            android:pathData="M-40,332 Q24,306 88,332 T216,332 T344,332 T472,332 T600,332 V560 H-40 Z" />
+        <path
+            android:fillColor="#FF133B63"
+            android:pathData="M-40,382 Q24,356 88,382 T216,382 T344,382 T472,382 T600,382 V560 H-40 Z" />
+        <path
+            android:fillColor="#FF0B2747"
+            android:pathData="M-40,432 Q24,406 88,432 T216,432 T344,432 T472,432 T600,432 V560 H-40 Z" />
+        <path
+            android:fillColor="#FF050F22"
+            android:pathData="M-40,482 Q24,456 88,482 T216,482 T344,482 T472,482 T600,482 V560 H-40 Z" />
+    </group>
+</vector>

@@ -1,0 +1,41 @@
+# Gradle / Android
+*.iml
+.gradle/
+build/
+/local.properties
+/.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+.DS_Store
+
+# Signing: never commit keys
+*.jks
+*.keystore
+keystore.properties
+
+# Build outputs (publish APKs through GitHub Releases instead)
+*.apk
+*.aab
+
+# Working files from AI coding sessions: screenshots, UI dumps and probe logs from the car
+/.claude/
+/Claude outputs/
+/CHANGES-android-studio-session.md
+/setup-claude-folder.bat
+
+# Car exports can contain the VIN, location and third-party app material. Review before sharing.
+car-exports/
+*.log
+
+# Not for the public repo: internal notes, decompiled vendor apps and USB-era files
+/pulled-apks/
+/docs-archive/
+/audit/
+/promo/
+/github-release/
+/SharkOS-CE-USB/
+/AGENTS.md
+/CLAUDE.md
+/GEMINI.md
+/CHANGELOG.md
