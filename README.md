@@ -7,27 +7,21 @@
 ![Firmware: SOC_260811_S](https://img.shields.io/badge/tested%20firmware-SOC__260811__S-lightgrey.svg)
 [![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-support%20the%20project-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/xopticghostx)
 
-SharkOS CE (Community Edition) replaces the Shark 6 home screen with a fast, customisable dashboard. Build your own home screen from widgets, reach the car's own switches in one tap, record with the built-in dash cam, and see far more of what the car is doing than BYD shows you. It runs on the head unit itself, needs no account, and sends nothing anywhere.
+## At a glance
+
+| | |
+| --- | --- |
+| **What it is** | A free, open-source home screen and vehicle control app for the BYD Shark 6. Build your own dashboard from widgets, reach the car's own switches in one tap, and record with the built-in four-camera dash cam. It runs on the head unit, needs no account and sends nothing anywhere. |
+| **Works with** | BYD Shark 6 head unit, Android 11, firmware `SOC_260811_S`. This is the only version it has been tested on; other firmware is untested. |
+| **You need** | A Windows PC on the same Wi-Fi as the car (a phone hotspot works). No admin rights. |
+| **Install** | 1. Download the installer from the [latest release](https://github.com/xopticghostx/SharkOS-CE/releases/latest). 2. Switch on ADB in the car (one-off). 3. Double-click `Install SharkOS CE.bat`. [Step-by-step below](#install-on-windows). |
+| **Updates** | In the app, under **Settings › Updates**. Your BYD home screen stays installed, so you can switch back any time. |
+
+**Jump to:** [Install](#install-on-windows) · [Screenshots](#screenshots) · [Safety](#safety) · [Features](#features) · [Technical reference](#technical-reference) · [Support](#support-the-project)
 
 > ⚠️ **Use at your own risk.** This is an unofficial community project. It is not affiliated with or endorsed by BYD, and it can change some driver-assist settings. Read [DISCLAIMER.md](DISCLAIMER.md) first.
 
 ![Home screen](docs/screenshots/home.png)
-
-## ☕ Support the project
-
-SharkOS CE is built by one person in spare time, and it is free. Getting here took:
-
-- **81 builds** , each one installed and checked on a real Shark 6
-- **About 19,000 lines** of Kotlin written from scratch
-- **163 car signals** mapped one at a time by probing the head unit and studying how BYD's own apps talk to the car, with every verified code written up in the [technical reference](BYD_SHARK6_REFERENCE.md)
-
-If SharkOS CE makes your Shark 6 better, a donation keeps the work going. **Supporters get early access to new builds** before they are released here.
-
-[![Support on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/xopticghostx)
-
-### Commissions
-
-Want a widget or feature that isn't here yet? You can commission custom SharkOS CE widgets and features through [Ko-fi](https://ko-fi.com/xopticghostx). Finished commissions are added to SharkOS CE so every Shark 6 owner benefits.
 
 ## Install on Windows
 
@@ -146,6 +140,22 @@ Requirements: Android Studio with JDK 17 or 21 (Gradle 8.14 won't run on Java 25
 ```
 
 The project uses Gradle 8.14, Android Gradle Plugin 8.7 and Kotlin 2.1, with `minSdk` 29 and `targetSdk` 35. An optional Stadia Maps key can go in `local.properties` as `stadia.apiKey=...`. Without it the map uses OpenFreeMap.
+
+## Support the project
+
+SharkOS CE is built by one person in spare time, and it is free. Getting here took:
+
+- **81 builds** , each one installed and checked on a real Shark 6
+- **About 19,000 lines** of Kotlin written from scratch
+- **163 car signals** mapped one at a time by probing the head unit and studying how BYD's own apps talk to the car, with every verified code written up in the [technical reference](BYD_SHARK6_REFERENCE.md)
+
+If SharkOS CE makes your Shark 6 better, a donation keeps the work going. **Supporters get early access to new builds** before they are released here.
+
+[![Support on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/xopticghostx)
+
+### Commissions
+
+Want a widget or feature that isn't here yet? You can commission custom SharkOS CE widgets and features through [Ko-fi](https://ko-fi.com/xopticghostx). Finished commissions are added to SharkOS CE so every Shark 6 owner benefits.
 
 ## Credits
 
