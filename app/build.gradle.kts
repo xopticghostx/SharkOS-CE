@@ -16,6 +16,17 @@ if (localPropsFile.isFile) {
 }
 val stadiaKey: String = localProps.getProperty("stadia.apiKey", "")
 
+// Release signing: keystore.properties (git-ignored, next to local.properties) holds storeFile, storePassword,
+// keyAlias and keyPassword. Never commit it or the .jks file. Updates only install over an existing copy when the
+// new APK is signed with the same key, so keep the keystore backed up.
+val keystoreProps = Properties()
+val keystorePropsFile = rootProject.file("keystore.properties")
+val hasReleaseKey = keystorePropsFile.isFile
+if (hasReleaseKey) {
+    val input = FileInputStream(keystorePropsFile)
+    try { keystoreProps.load(input) } finally { input.close() }
+}
+
 android {
     namespace = "com.sharkhome.launcher"
     compileSdk = 35
@@ -27,19 +38,34 @@ android {
         applicationId = "com.sharkhome.launcher"
         minSdk = 29
         targetSdk = 35
-        versionCode = 81
-        versionName = "0.6.761"
+        versionCode = 82
+        versionName = "0.6.762"
         // The Shark 6 head unit is arm64; shipping only that keeps MapLibre's native library from adding ~30 MB.
         ndk { abiFilters += "arm64-v8a" }
         buildConfigField("String", "STADIA_KEY", "\"$stadiaKey\"")
     }
 
+    signingConfigs {
+        if (hasReleaseKey) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Signed with the debug key so a release build installs straight away.
-            // Swap in your own keystore before sharing the APK with anyone.
-            signingConfig = signingConfigs.getByName("debug")
+            if (hasReleaseKey) {
+                signingConfig = signingConfigs.getByName("release")
+            } else {
+                // No keystore.properties: fall back to the debug key so the build still works, but do not publish this APK.
+                logger.warn("WARNING: keystore.properties not found, so the release build is signed with the DEBUG key. Do not publish it.")
+                signingConfig = signingConfigs.getByName("debug")
+            }
         }
     }
 

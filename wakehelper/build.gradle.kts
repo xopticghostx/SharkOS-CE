@@ -1,6 +1,18 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+}
+
+// Same release key as the app (see app/build.gradle.kts). Missing keystore.properties = debug key with a warning.
+val keystoreProps = Properties()
+val keystorePropsFile = rootProject.file("keystore.properties")
+val hasReleaseKey = keystorePropsFile.isFile
+if (hasReleaseKey) {
+    val input = FileInputStream(keystorePropsFile)
+    try { keystoreProps.load(input) } finally { input.close() }
 }
 
 /*
@@ -29,11 +41,27 @@ android {
         versionName = "1.0"
     }
 
+    signingConfigs {
+        if (hasReleaseKey) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
             // Must be signed with the same key as SharkOS-CE: it uses SharkOS-CE's signature permission.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasReleaseKey) {
+                signingConfigs.getByName("release")
+            } else {
+                logger.warn("WARNING: keystore.properties not found, so the wake helper is signed with the DEBUG key.")
+                signingConfigs.getByName("debug")
+            }
         }
     }
 
