@@ -121,7 +121,8 @@ function Invoke-Adb {
     }
     $p.WaitForExit()
     $text = (($outTask.Result + "`n" + $errTask.Result) -replace "`r", '').Trim()
-    Log "adb $($psi.Arguments) -> [$($p.ExitCode)] $text"
+    $logText = if ($text.Length -gt 400) { $text.Substring(0, 400) + ' ...(trimmed)' } else { $text }
+    Log "adb $($psi.Arguments) -> [$($p.ExitCode)] $logText"
     return [pscustomobject]@{ Code = $p.ExitCode; Output = $text }
 }
 
@@ -647,21 +648,32 @@ function Install-SharkOS($Apks) {
     if ($stockHome) { $stockHome = $stockHome.Trim() }
     if ($stockHome -and $stockHome -notmatch [regex]::Escape($Pkg)) {
         Set-Content -Path (Join-Path $DataDir 'stock-launcher.txt') -Value $stockHome
-        Info "Current home screen: $stockHome (saved so you can switch back)"
+        Info "Current home screen: $stockHome (it will stay as it is)"
     }
 
     $help = 'Removing it deletes that build''s saved settings and home screen layout.'
     if (-not (Install-Apk $Apks.App $Pkg 'SharkOS CE launcher' $help)) { Stop-Installer 'The launcher could not be installed.' }
 
     Info 'Granting permissions...'
-    $granted = 0
     foreach ($perm in $Permissions) {
-        $g = Invoke-Adb -Arguments @('shell', 'pm', 'grant', $Pkg, $perm) -TimeoutSec 30
-        if ($g.Code -eq 0 -and -not $g.Output) { $granted++ }
+        [void](Invoke-Adb -Arguments @('shell', 'pm', 'grant', $Pkg, $perm) -TimeoutSec 30)
     }
     [void](Invoke-Adb -Arguments @('shell', 'appops', 'set', $Pkg, 'SYSTEM_ALERT_WINDOW', 'allow'))
     [void](Invoke-Adb -Arguments @('shell', 'cmd', 'notification', 'allow_listener', "$Pkg/com.sharkhome.launcher.media.MediaListenerService"))
-    Ok "$granted of $($Permissions.Count) permissions granted (the rest are granted automatically or not offered by this firmware)."
+    # Count what the car really reports as granted, not what each grant command said
+    # (the install itself already grants most of them, so the grant command has nothing to do).
+    $dump = (Invoke-Adb -Arguments @('shell', 'dumpsys', 'package', $Pkg) -TimeoutSec 30).Output
+    $grantedNow = @{}
+    foreach ($m in [regex]::Matches($dump, '(?m)^\s*([A-Za-z0-9_.]+): granted=true')) { $grantedNow[$m.Groups[1].Value] = $true }
+    $missing = @($Permissions | Where-Object { -not $grantedNow.ContainsKey($_) })
+    $granted = $Permissions.Count - $missing.Count
+    Log ('permissions not granted: ' + ($missing -join ', '))
+    if ($missing.Count -eq 0) { Ok "All $($Permissions.Count) permissions are granted." }
+    else {
+        Ok "$granted of $($Permissions.Count) permissions are granted."
+        Info "$($missing.Count) are not available on this car's firmware. SharkOS CE still installs; a feature that needs one may not work."
+        Info 'Their names are in the log file.'
+    }
 
     $helperInstalled = $false
     if ($Apks.Helper) {
@@ -692,7 +704,7 @@ Say '    4. connect to it         5. install the launcher, its permissions and t
 Say ''
 Say '  Before you start: park the car, switch it on, and connect it to the same Wi-Fi as this PC.' 'White'
 Say '  SharkOS CE is an unofficial community project with no warranty. It is not made by BYD.' 'DarkGray'
-Say '  Your stock BYD home screen stays installed and you can switch back at any time.' 'DarkGray'
+Say '  Your BYD home screen is not changed: SharkOS CE is installed as an extra app.' 'DarkGray'
 if (-not (AskYesNo 'Ready to start?' $true)) { Stop-Installer 'Stopped.' 0 }
 
 try {
@@ -710,7 +722,8 @@ Write-Host ''
 Say '  All done.' 'Green'
 Say ''
 Say '  What to do next, on the car screen:' 'White'
-Info '1. Press the Home button. If the car asks which home app to use, pick "SharkOS-CE" and "Always".'
+Info '1. SharkOS CE is open on the car screen. Your BYD home screen has not been changed.'
+Info '   To open SharkOS CE later, find "SharkOS-CE" in the car''s app list.'
 Info '2. In SharkOS CE open  Vehicle > Diagnostics  and check the car connection shows Connected.'
 if ($result.Helper) { Info '3. The SharkOS-CE helper is installed: SharkOS CE reopens by itself when the car wakes up.' }
 else { Info '3. The SharkOS-CE helper is NOT installed: after the car sleeps, open SharkOS CE from the app list.' }
@@ -718,7 +731,6 @@ Say ''
 Say '  Good to know:' 'White'
 Info 'Leave ADB switched on if you want the in-app volume buttons, app installer and permission manager'
 Info '(they use the head unit''s own ADB). Otherwise switch it off again in the hidden menu.'
-if ($result.StockHome) { Info "To go back to BYD's home screen:  adb shell cmd package set-home-activity $($result.StockHome)" }
 Info "To remove SharkOS CE:  adb uninstall $Pkg   and   adb uninstall $HelperPkg"
 Info "Log file: $LogFile"
 [void](Invoke-Adb -Arguments @('disconnect', $script:Serial) -NoSerial -TimeoutSec 10)
