@@ -116,6 +116,7 @@ Developed and tested on one Shark 6 on firmware `SOC_260811_S` (Android 11). Oth
 | --- | --- |
 | [`BYD_SHARK6_REFERENCE.md`](BYD_SHARK6_REFERENCE.md) | Services, device classes, permissions, method names and raw value encodings for the Shark 6 head unit |
 | [`app/src/main/assets/shark6_codes.json`](app/src/main/assets/shark6_codes.json) | Every car signal the app uses: read and write methods, labels, scale and notes on what was verified |
+| [`docs/BYD_VOICE_ASSISTANT.md`](docs/BYD_VOICE_ASSISTANT.md) | How BYD's own voice assistant was used to find write values and how to use it as a test step: calls found, how to read and fire them safely, and what does and doesn't work |
 
 You can try new codes without rebuilding. Copy an edited `shark6_codes.json` to `/sdcard/Android/data/com.sharkhome.launcher/files/` and restart the app.
 
