@@ -4,6 +4,8 @@ This page explains how SharkOS CE used BYD's own voice assistant to learn the ex
 
 > **Unofficial and read-only.** This is community research. It is not affiliated with or endorsed by BYD. Everything here reads BYD's installed app on your own car for interoperability. Do not redistribute BYD's files. Changing car settings is at your own risk: read [DISCLAIMER.md](../DISCLAIMER.md) and change one thing at a time while parked.
 
+The complete write-up with every command list is [BYD_VOICE_ASSISTANT_FULL.txt](BYD_VOICE_ASSISTANT_FULL.txt).
+
 Status words used below: **VERIFIED** = tried on the car and checked against BYD's own screen or a read-back. **DECODED** = read from BYD's code only, not tried on the car.
 
 ## The short version
@@ -119,7 +121,9 @@ Language understanding runs in the engine and in BYD's cloud, so wording is free
 
 BYD's own English help shows examples such as "Open driver window", "Close all windows", "Turn on the AC", "Set the fan speed to level 3", "Switch on driver seat heating", "Turn on Bluetooth", "Make the screen brighter" and "Rotate screen".
 
-To list everything on your own car (we do not republish BYD's lists):
+**The full lists are in [BYD_VOICE_ASSISTANT_FULL.txt](BYD_VOICE_ASSISTANT_FULL.txt)** (about 1,600 lines): every example phrase BYD shows, every request name per domain, and all 2,186 intent names grouped by topic. Those lists come from BYD's own app and remain BYD's; they are included for interoperability research.
+
+To list everything yourself on your own car:
 - Examples by area: `assets/language/en.properties` inside `BydVoice.apk`.
 - All intents by domain: `data_vr-BASE/asr_common/config/intent_mapping_domain_config.json` inside the `.7z` above (`domain_mapping`).
 - Request names per domain: the `*RequestsEnum` classes in the dex dump (step 5 above). The car-body set (`vehiclecontrol`) has 75, climate has 19.

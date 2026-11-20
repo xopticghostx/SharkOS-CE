@@ -1,0 +1,1721 @@
+BYD SHARK 6 VOICE ASSISTANT: WHAT WE FOUND, HOW TO USE IT, AND EVERY COMMAND
+Written 21 Nov 2026 for SharkOS-CE. Car: BYD Shark 6, firmware SOC_260811_S.
+Source of everything below: BYD voice assistant app com.byd.vrassistant (BydVoice.apk,
+versionName S.10.1.7, versionCode 177, SHA-256 ef416592b41bbe19a891f18f77e64a41a9d396279d238368485b946d278aa4c2),
+pulled from /product/app/BydVoice/ and read with dexdump, plus live tests on the car.
+NOTICE: this file is unofficial community research and is not affiliated with or endorsed by BYD. The phrase, request and intent
+lists in sections 7 to 9 are extracted from BYD's own voice assistant app and remain BYD's; they are included for interoperability
+research only. Changing car settings is at your own risk: change one thing at a time while parked.
+Status words used: VERIFIED = tried on the car and checked against BYD's own screen or a read-back.
+DECODED = read from BYD's code only, NOT tried on the car.
+
+==============================================================================
+1. THE SHORT VERSION
+==============================================================================
+
+- The voice assistant makes the same android.hardware.bydauto.* calls that SharkOS-CE makes. So the
+  assistant's own code is a reliable list of "what the car expects" for each spoken action, including
+  the exact write VALUES. Reading it gave us the window write that nothing else had.
+- We could NOT send a spoken command from adb. Audio played from the car's own speakers is not heard by
+  the assistant (its overlay just kept cycling hints), and the app has no text-input entry point.
+  So the working method is: read the assistant's code to learn the call, then fire that same call
+  ourselves (our ADB test hook / codes file) and check the result on BYD's own screen.
+- Found and used today: window open/close (VERIFIED on the front-left window), recirculate encoding
+  (VERIFIED, and it exposed a bug in our own app), Bluetooth, screen brightness, rear window lock,
+  and the full list of requests and intents the engine understands (sections 8 and 9).
+
+
+==============================================================================
+2. CALLS THE BYD VOICE ASSISTANT MAKES (SPOKEN ACTION -> CAR CALL)
+==============================================================================
+
+1. Open / close a window
+   Call:   bodywork.BYDAutoBodyworkDevice.setWindowControlState(int[4])
+   Array index 0 = front left, 1 = front right, 2 = rear left, 3 = rear right. Value 0 = leave that window alone.
+   Value 1 = open, 2 = close, 4 = half, 5 = small gap. The assistant picks the value from the percentage you ask for:
+   more than 90 -> 1, under 5 -> 2, 40 to 60 -> 4, 5 to 20 -> 5, anything else is refused ("UNSUPPORTED").
+   It refuses while the window lock or child lock is on. It reads positions with getWindowState(1..4).
+   Status: VERIFIED on the front-left window: [1,0,0,0] opened it, [2,0,0,0] closed it (open % read 9, 88, 97 on the way). The other windows and codes 4 and 5 are DECODED only. The Shark 6 has no adjustable rear windows.
+
+2. Read a window position
+   Call:   caradapter body.getWindowOpenPercentLeftFront / RightFront (and LeftRear / RightRear)
+   0 to 100 percent open. It reads 0 when closed and 97 to 98 when fully open.
+   Status: VERIFIED
+
+3. Recirculate on / off
+   Call:   ac.BYDAutoAcDevice.setAcCycleMode(1, x)  (BYD's own climate screen sends setAcCycleMode(0, x))
+   x = 1 means recirculate, x = 0 means fresh air. The assistant reads the current mode with getAcCycleMode() first.
+   Read side (caradapter hvac getAcCycleMode): 2 = recirculate, 1 = fresh air.
+   Status: VERIFIED with the (0, x) form against BYD's climate screen. The (1, x) form is as read from the code and was not exercised.
+
+4. Rear window lock
+   Call:   doorlock.BYDAutoDoorLockDevice.setRearWindowLock(v);  read getDoorLockStatus(6)
+   Write v = 2 -> the read shows 1. Write v = 1 -> the read shows 2. (The read is the inverse of the write.)
+   In the assistant's code a read of 1 means "locked", so write 2 = lock and write 1 = unlock.
+   Status: The write/read relationship is VERIFIED on the car; which value means "locked" comes from BYD's code. No control was built (no rear windows).
+
+5. Bluetooth on / off
+   Call:   android.bluetooth.BluetoothAdapter.enable() / disable()
+   Plain Android.
+   Status: VERIFIED from the SharkOS-CE Bluetooth tile (settings value 1 -> 0 -> 1).
+
+6. Screen brightness
+   Call:   Settings.System "screen_brightness" (0 to 255) for the centre screen; the instrument cluster uses bydauto.instrument.BYDAutoInstrumentDevice.setInstrumentBrightness(int)
+   The assistant converts a 0-100 request to 0-255 for the centre screen.
+   Status: The setting VERIFIED to change (169 -> 130 -> 169 and 169 -> 139 -> 169, written with: settings put system screen_brightness N through the unit's own adb). That the panel visibly dims is not yet confirmed by eye.
+
+7. Mobile data
+   Call:   TelephonyManager.setDataEnabled(boolean) by reflection; read with getDataEnabled
+   Needs a privileged phone permission.
+   Status: NOT usable by us. "svc data" and "cmd phone data" changed nothing here (the connection is the T-Box network, type Tbox).
+
+8. Door lock
+   Call:   doorlock.BYDAutoDoorLockDevice.setDoorLockStatus(a, b)
+   Values not decoded.
+   Status: DECODED call name only.
+
+9. Climate
+   Call:   ac.BYDAutoAcDevice: setAcControlMode(II), setRearAcControlMode(II), setAcCompressorMode(II), setAcTemperatureControlMode(II), setAcWindMode(II), setRearAcWindMode(II), setAcMaxCoolingState(I), setAcDefrostState(III), stop(I), stopRearAc(I), setQuickCleanAirState(I)
+   Values not decoded.
+   Status: DECODED call names only.
+
+10. Seat heat, seat vent, steering wheel heat
+   Call:   setting.BYDAutoSettingDevice: setSeatHeatingState(II), setSeatVentilatingState(II), setSteeringWheelHeatingState(I)
+   Values not decoded.
+   Status: DECODED call names only.
+
+11. Air purifier
+   Call:   pm2p5.BYDAutoPM2p5Device: setPM2p5CheckState(I), setPM2p5DualChannelDetectState(I), setPM2p5AnionDetectState(I)
+   Values not decoded.
+   Status: DECODED call names only.
+
+12. HUD on / off
+   Call:   setting.BYDAutoSettingDevice.setHudState(I)
+   Value not decoded.
+   Status: DECODED call name only.
+
+13. Rotate screen
+   Call:   setting.BYDAutoSettingDevice.setScreenRotation(I)
+   1 = landscape, 2 = portrait.
+   Status: VERIFIED earlier (SharkOS-CE v0.6.766).
+
+14. Fragrance level
+   Call:   fragrance.BYDAutoFragranceDevice.setFragranceConcentration(I)
+   Value not decoded.
+   Status: DECODED call name only.
+
+15. Reading light
+   Call:   setting.BYDAutoSettingDevice.setInsideLightDoorState(I)
+   true -> 2, false -> 1.
+   Status: DECODED only.
+
+16. Power source / drive mode
+   Call:   energy.BYDAutoEnergyDevice.setOperationMode(I)
+   Value not decoded.
+   Status: DECODED call name only.
+
+17. Rear tray (the ute's tailgate; BYD's code calls it the "trunk" or "back door")
+   Call:   setting.BYDAutoSettingDevice.voiceCtlBackDoor(int)
+   Value:  open percentage 0 (close) -> 3, anything above 0 (open) -> 1. There is no partial opening in this call.
+   Read:   bodywork.BYDAutoBodyworkDevice.getBackDoorCurState(): as best read from the code, 1 or 3 is reported as 100 % open and any other value as 0 %.
+   Status: DECODED only, NOT tried on the car. Opening the tray moves a heavy panel: do not test without someone at the car
+           and the area behind the car clear.
+
+18. Tub light (BYD's "trunk light")
+   Call:   none. The assistant's controlTrunkLight handler just answers "UNSUPPORTED" on this variant.
+   The Shark 6 tub light is already controlled by SharkOS-CE as the Bed Light tile (signal body.cargoLight).
+   Status: nothing to decode.
+
+NOT ON THE SHARK 6 (checked 21 Nov 2026): it is a ute with no sunroof and no boot/trunk. The voice engine still lists
+sunroof and trunk requests (CONTROL_SUNROOF, GET_SUNROOF_STATE, SET_TRUNK_STATE, GET_TRUNK_STATE) because it is shared across
+BYD models; on this car the trunk requests act on the rear tray, and the sunroof ones do nothing useful. The Shark 6 also has
+no adjustable rear windows. It does have rear power points; the voice assistant has no handler for them (they belong to the
+V2L / charging side, see CHANGELOG v0.6.774 for the read-only V2L probes).
+
+Handlers still to read (names only so far): blinds/sunshade (probably unused here), interior light colour and
+brightness, drive mode, road mode, nap mode, camera record/photo, ADAS, child lock, engine sound,
+wing-mirror heating, hotspot, Wi-Fi. They are in com.byd.vrassistant.conversation.*Helper classes.
+
+==============================================================================
+3. HOW TO READ THE WRITE VALUE FOR ANY VOICE COMMAND
+==============================================================================
+
+Needs: the car on adb over Wi-Fi, Android build-tools (dexdump), and a text editor. No root needed.
+
+ 1. Pull the app (read-only):
+      adb -s <car-ip>:5555 pull /product/app/BydVoice/BydVoice.apk
+      (Git Bash: set MSYS_NO_PATHCONV=1 first, or the path gets rewritten.)
+ 2. Unzip classes*.dex and disassemble each one:
+      dexdump -d classes2.dex > c2.txt        (build-tools\36.0.0\dexdump.exe; the file is ~1.8 million lines)
+ 3. Find the helper for the action. The useful classes are in com.byd.vrassistant.conversation:
+      BydSdkHelper (window state, window lock, cellular data, child lock)
+      VehicleBasicHelper (setWindowState, controlWindowLock, controlChildLock)
+      HvacSetStateHelper / HvacHelper / Hvac*Helper (climate, seat heat/vent, defrost)
+      VehicleScreenHelper (brightness), VehicleLampHelper (interior light), VehicleSettingsHelper (Bluetooth, hotspot)
+ 4. In the dump, search for "] com.byd.vrassistant.conversation.<Class>.<method>:" and read until the next
+    "] " method header. The lines that matter are:
+      const/4 vN, #int X    -> a literal value
+      aput vV, vA, vI       -> puts a value into an int[] (this is how the window array is built)
+      invoke-virtual {..}, Landroid/hardware/bydauto/<dev>/<Class>;.<method>:(sig)  -> the car call
+    Walk back from the invoke to see what value each branch loads (for example 'percent > 90 -> 1').
+ 4a. Request names (what a spoken request is called inside the engine) are the field names of
+    cerence/ark/assistant/controller/domain/<domain>/<Domain>RequestsEnum (section 8).
+ 5. Remember a "read" that the assistant uses is often the inverse of its write (rear window lock), and
+    the first argument can differ from BYD's own app (recirculate uses 1 here, 0 in the climate app).
+    Always confirm on the car (section 5), never trust the decoded value alone.
+
+
+==============================================================================
+4. HOW TO FIRE A DECODED WRITE ON THE CAR (SAFELY)
+==============================================================================
+
+SharkOS-CE v0.6.780 and later accept an int[] argument in shark6_codes.json as a nested array:
+      "args": [[1, 0, 0, 0]]          -> setWindowControlState(new int[]{1,0,0,0})
+A temporary override file is the safe way to try a new call without rebuilding:
+ 1. Copy shark6_codes.json, add a signal with "labels" and "writeLabels" (see window.ctl.frontLeft in the
+    shipped file for a complete example), save it as the override.
+ 2. adb push it to /sdcard/shark6_codes.json, then on the car:
+      cp /sdcard/shark6_codes.json /storage/emulated/0/Android/data/com.sharkhome.launcher/files/shark6_codes.json
+      chmod 644 that file
+ 3. Reload and test with the built-in hook (results log to tag SharkCar):
+      adb shell am broadcast -a com.sharkhome.launcher.ADB_TEST -n com.sharkhome.launcher/.car.AdbTestReceiver --es cmd reload
+      ... --es cmd read --es keys "your.signal"
+      ... --es cmd verify --es keys "your.signal" --es target on --ei waitMs 8000
+    verify reads the value, writes the target, reads it back, then writes the original back.
+ 4. Delete the override file when done and send cmd=reload again (log shows origin=built-in).
+Before changing any car setting: say what you are about to change, change one thing, and put it back.
+Windows are slow (about 5 s to open), so use a long waitMs or poll the read yourself; the generic confirm
+reports "not confirmed" for slow moves even when they worked. Never test a window with people or
+objects in its path.
+
+
+==============================================================================
+5. TEST STEP: CHECK THE ACTION IS CORRECT WHEN IT IS EXPOSED TO VOICE
+==============================================================================
+
+Use this whenever an action in SharkOS-CE (or any new voice integration) is meant to match what the
+BYD assistant does. The point is that "the read-back matched our own table" is NOT proof; on 20 Nov the
+recirculate tile shipped inverted even though every read-back said confirmed=true.
+
+ For each action:
+  [ ] 1. Find the assistant's call for the phrase (section 3) and write down: device, method, argument values.
+  [ ] 2. Find the read the assistant uses for the same state and write down what each value means.
+  [ ] 3. Record the starting state (read it) so you can put it back.
+  [ ] 4. Fire OUR write (not the voice one) and read the value back; allow for slow reports (3-5 s, windows ~8 s).
+  [ ] 5. Compare with the OUTSIDE truth, not with our own labels: BYD's own screen (zoom in on the icon),
+         or the physical result. Example: BYD climate screen shows a loop arrow inside the car for recirculate
+         and an arrow entering from outside for fresh air.
+  [ ] 6. Confirm the write and read directions agree with the assistant's code (is 1 on or off? is the read the
+         inverse of the write?). Rear window lock reads the inverse of what you write.
+  [ ] 7. Put the car back to the starting state and read it again to prove it.
+  [ ] 8. If a voice command can be tested for real (someone speaks, or the assistant's overlay shows the
+         recognised text), say the phrase and check the car lands in the same state as step 4.
+  [ ] 9. Write the verified encoding into shark6_codes.json (_note) and BYD_SHARK6_REFERENCE.md. Mark anything
+         not tried as UNVERIFIED.
+
+ Known-good checks so far (21 Nov 2026):
+   recirculate  write (0,1)/(1,1) = recirculate, (0,0)/(1,0) = fresh; read 2 = recirculate, 1 = fresh. BYD climate screen agrees.
+   window       [1,0,0,0] opens front left, [2,0,0,0] closes it; open % read goes 0 -> 9 -> 88 -> 97.
+   rear window lock  write 2 reads back 1; write 1 reads back 2.
+
+
+==============================================================================
+6. TALKING TO THE ASSISTANT FROM ADB (WHAT WORKS, WHAT DOES NOT)
+==============================================================================
+
+WORKS
+ - Start it listening without the wake word:
+      adb shell am broadcast --receiver-foreground -a com.intent.action.StartVoice_From_Launcher -n com.byd.vrassistant/.receiver.HardKeyReceiver
+   (without -n and --receiver-foreground Android blocks it as "background execution".)
+ - Its overlay bar (top right of the screen) shows what it thinks it heard, so a screenshot shows the transcript.
+ - It logs at warning level under tags NEU_* (NEU_VoiceAssistantManager, NEU_CustomSystemDomain, ...). Its
+   info/debug lines (recognised text, results) are hidden on this head unit.
+ - SharkOS-CE v0.6.779 has  --es cmd play --es file name.wav  in the ADB hook to play a sound file from the
+   app's files folder.
+DOES NOT WORK
+ - Playing a speech WAV from the car's own speakers: the assistant did not hear it (its overlay only cycled
+   hints, nothing changed). Probably echo cancellation; not proven.
+ - No text-input hook on the device. The Cerence ARK events (PTT, CANCEL_DIALOG, ...) carry no text.
+ - BYD's test harness receiver AutoRunReceiver (actions bydvoice.broadcast.autobatch.start/pcm/stop, extras
+   filename and data_path) accepts broadcasts from adb but needs prepared recordings and a JSON dialog list and
+   restarts the engine each call; the format was not worked out. After a probe the assistant recovered in
+   about 5 s ("start Assistant success" in the log).
+NOTED, NOT USED
+ - The engine's cloud config (data_vr-BASE asr_eng-USA one_cloud_config.json) lists a TextQueryService on BYD's
+   Cerence One Cloud (gRPC, OAuth). That would accept text, but it needs BYD's credentials, so we did not touch it.
+ - The wake word was not found in the logs or resources (the data pack is "data_eng-USA").
+
+
+==============================================================================
+7. OFFICIAL EXAMPLE COMMANDS (BYD'S OWN ENGLISH HELP LIST)
+==============================================================================
+From assets/language/en.properties. These are the examples BYD shows to the user; many more phrasings work.
+
+[Map]
+  Navigate to the destination:
+     "Go home"
+     "Navigate to the hotel"
+     "Take me to Central Station"
+     "Go to work"
+  Navigating:
+     "How long will it take to get to the destination"
+     "What's the distance to our destination"
+     "View entire trip"
+  Nearby Search:
+     "Find a parking space nearby"
+     "Find a charge station nearby"
+     "Look for a hotel nearby"
+     "I'm hungry"
+  Control Map:
+     "Map zoom in"
+     "Zoom out the map"
+     "Could you switch to map 3D head-up mode"
+     "Switch map to 2D head-up mode"
+     "Exit navigation"
+     "Resume route guidance"
+
+[Vehicle Control]
+  Control A/C:
+     "Turn on the AC"
+     "Make the temperature 25 degrees"
+     "Turn on outside air"
+     "It's too hot"
+     "Turn down the fan speed"
+     "Set the fan speed to level 3"
+     "Switch on front window defrost"
+     "Turn on ventilation"
+  Control Air Purification:
+     "Turn on air purifier"
+     "Turn off air purification"
+  Control Seats:
+     "Switch on driver seat heating"
+     "Turn on seat ventilation"
+     "Turn on passenger seat ventilation"
+     "Turn off seat ventilation"
+  Regulate Ambient Light:
+     "Turn off ambient light"
+     "Turn on ambient light"
+     "Set the ambient lights to purple"
+     "Change the color of the ambient light to red"
+  Control Windows:
+     "Open window"
+     "Open front passenger window"
+     "Open driver window"
+     "Close all windows"
+     "Open the sunroof to halfway"
+     "Close sunroof"
+  Control Sunshade:
+     "Open sunshade"
+     "Close sunshade"
+  Control Reading Lights:
+     "Turn on the reading lights"
+     "Disable reading lights"
+
+[Bluetooth Phone]
+  Make a Call:
+     "Call Jack"
+     "Dial Jack's phone number"
+  Search Contacts:
+     "View Jack's contact card"
+     "View address book"
+     "View call history"
+     "View missed call"
+
+[Media Player]
+  Listen to Music:
+     "Play music"
+     "Pause music"
+     "Previous song"
+     "Next song"
+     "Play bluetooth music"
+  Listen to Radio:
+     "Tune to 101 FM"
+     "Play the radio"
+     "Pause radio"
+     "I want to listen to radio"
+     "Scan stations"
+
+[System Operations]
+  Adjust Volume:
+     "Turn up the volume"
+     "Turn down the volume"
+     "Set volume to 12"
+     "Mute"
+     "Unmute navigation"
+     "Set navigation volume to 15"
+  Rotate Screen:
+     "Rotate screen"
+     "Horizontal screen"
+     "Vertical screen"
+  App Operations:
+     "Open settings"
+     "Close BYD Assistant"
+  System Settings Operations:
+     "Go to Wi-Fi settings"
+     "Open bluetooth settings"
+     "Open ambient light settings"
+     "Show me the audio settings"
+  Other Operations:
+     "Turn on Bluetooth"
+     "Turn on Wi-Fi"
+     "Make the screen brighter"
+     "Return to homepage"
+
+==============================================================================
+8. CAR ACTIONS THE VOICE ENGINE CAN REQUEST (PER DOMAIN)
+==============================================================================
+These are the request names inside BYD's voice app (cerence/ark/assistant/controller/domain/*). Some of them end
+in the car calls in section 2; most are not decoded yet. Domain "vehiclecontrol" is the car-body set. On the Shark 6 (a ute) read SET_TRUNK_STATE / GET_TRUNK_STATE as the rear tray and ignore the sunroof requests.
+
+[vehiclecontrol] (75)
+  CHECK_CAPABILITY                        CHECK_CPAACONNECTION
+  CHECK_CPAAIN_FOREGROUND                 CHECK_PERFUME_EMPTY
+  CHECK_SCREEN_STATE                      CHECK_VEHICLE_FUNCTION_AVAILABILITY
+  CLOSE_APP                               CLOSE_FSDEVICE
+  CLOSE_MODE                              CONTROL_ADAS
+  CONTROL_BLUETOOTH                       CONTROL_CAMERA_RECORD
+  CONTROL_CAMERA_SWITCH                   CONTROL_CAMERA_TAKE_PHOTO
+  CONTROL_CELLULAR_DATA                   CONTROL_CHILD_LOCK
+  CONTROL_DRIVING_MODE                    CONTROL_ENGINE_SOUND
+  CONTROL_HOTSPOT                         CONTROL_HUD
+  CONTROL_NAP_MODE                        CONTROL_ROAD_MODE
+  CONTROL_SUNROOF                         CONTROL_TRUNK_LIGHT
+  CONTROL_WIFI                            CONTROL_WINDOW_LOCK
+  CONTROL_WING_MIRROR_HEATING             DECREASE_FRAGRANCE_LEVEL
+  DECREASE_INTERIOR_LIGHT_BRIGHTNESS      DECREASE_SCREEN_BRIGHTNESS
+  GET_ADAS_STATUS                         GET_BLINDS_STATE
+  GET_CHILD_LOCK_STATE                    GET_DEVICE_STATE
+  GET_FRAGRANCE_LEVEL                     GET_FRAGRANCE_STATE
+  GET_FSDEVICE_STATE                      GET_INTERIOR_LIGHT_BRIGHTNESS
+  GET_INTERIOR_LIGHT_STATE                GET_INTERIOR_LIGHT_ZONES
+  GET_SCREEN_BRIGHTNESS                   GET_SCREEN_DISPLAY_MODE
+  GET_SOC_STATE                           GET_SUNROOF_STATE
+  GET_SUPPORTED_DRIVING_MODE              GET_SUPPORTED_ROAD_MODE
+  GET_TOWING_STATE                        GET_TRUNK_STATE
+  GET_VEHICLE_INFO                        GET_WINDOW_LOCK_STATE
+  GET_WINDOW_STATE                        INCREASE_FRAGRANCE_LEVEL
+  INCREASE_INTERIOR_LIGHT_BRIGHTNESS      INCREASE_SCREEN_BRIGHTNESS
+  IS_PARKING_GEAR_ON                      IS_RAINING
+  OPEN_APP                                OPEN_FSDEVICE
+  OPEN_MODE                               QUERY_CURRENT_SPEED
+  QUERY_TIRE_PRESSURE                     ROTATE_SCREEN
+  SET_BLINDS_STATE                        SET_FRAGRANCE_LEVEL
+  SET_FRAGRANCE_STATE                     SET_INTERIOR_LIGHT_BRIGHTNESS
+  SET_INTERIOR_LIGHT_COLOR                SET_INTERIOR_LIGHT_STATE
+  SET_SCREEN_BRIGHTNESS                   SET_SCREEN_DISPLAY_MODE
+  SET_SCREEN_ON_OFF                       SET_SCREEN_ORIENTATION
+  SET_SOC_STATE                           SET_TRUNK_STATE
+  SET_WINDOW_STATE                        
+
+[hvac] (19)
+  CHECK_HVAC_FUNCTION_AVAILABILITY        GET_ACTEMPERATURE
+  GET_DEFROSTER_STATE                     GET_FAN_DIRECTION
+  GET_FAN_DIRECTION_EX                    GET_HAVC_LEVEL
+  GET_HVAC_MIN_TEMP_UNIT                  GET_HVAC_STATE
+  GET_HVAC_TYPE                           GET_MAX_HAVC_LEVEL
+  HVAC_CHECKIS_HEAT_PUMP                  HVAC_INTERFACE_WAIT_TIMER
+  IS_POWER_ON                             SET_ACTEMPERATURE
+  SET_DEFROSTER_STATE                     SET_FAN_DIRECTION
+  SET_FAN_DIRECTION_EX                    SET_HVAC_LEVEL
+  SET_HVAC_STATE                          
+
+[media] (5)
+  IS_MEDIA_PROVIDER_RUNNING               PLAY_MEDIA
+  PLAY_MUSIC                              QUERY_CURRENT_MEDIA_INFO
+  SEARCH_MUSIC                            
+
+[radio] (18)
+  CONTROL_AM                              CONTROL_DAB
+  CONTROL_FM                              CONTROL_RADIO
+  FAVORITE_CONTROL                        FAVORITE_CONTROL_AM
+  FAVORITE_CONTROL_DAB                    FAVORITE_CONTROL_FM
+  GET_DAB_SUPPLY_VERSION                  IS_FREQUENCY_OUT_OF_RANGE
+  IS_RADIO_STATION_LIST_SUPPORTED         PLAY_FAV_AM
+  PLAY_FAV_DAB                            PLAY_FAV_FM
+  PLAY_FAV_RADIO                          PLAY_RADIO
+  PLAY_RADIO_BY_CATEGORY                  SCAN_CONTROL
+
+[phone] (7)
+  CALL_OPERATION                          CHECK_PHONE_STATUS
+  GET_CALL_LOG                            GET_CONTACTS
+  GET_PHONE_NUMBER                        IS_CONTACT_LIST_EMPTY
+  MAKE_CALL                               
+
+[audiocontrol] (19)
+  CONTROL_FAVORITELIST                    CONTROL_PLAYLIST
+  CONTROL_VOLUME                          FAVORITE_CONTROL
+  GET_ACTIVE_MEDIA_TYPE_BEFORE_CONVERSATIONGET_CURRENT_STREAM_TYPE
+  GET_GLOBAL_MUTE_STATE                   GET_MEDIA_STATE_BEFORE_CONVERSATION
+  GET_MICVOLUME                           GET_RECENT_PLAYED_MEDIA_PROVIDER
+  GET_VOLUME                              IS_BTCONNECTED
+  IS_MICCONNECTED                         IS_NAVI_APP_INSTALLED
+  PLAY_CONTROL                            PLAY_VIDEO
+  SET_MICVOLUME                           SET_PLAY_MODE
+  SET_VOLUME                              
+
+[system] (11)
+  CANCEL                                  CHECK_SHORTCUT_AVAILABLE
+  GET_ENABLED_AUDIO_ZONES                 GET_EXTERNAL_VOICE_ASSISTANT_STATUS
+  GET_NETWORK_STATUS                      HIDE_SCREEN
+  QUERY_HUFORBID_STATUS                   RELEASE_AUDIO_FOCUS
+  REQUEST_AUDIO_FOCUS                     SHOW_SCREEN
+  WUW_WAIT_TIME                           
+
+[hmi] (4)
+  DISPLAY                                 HIGHLIGHT_ITEM
+  PAGE_CONTROL                            SHOW_PICKLIST
+
+[weather] (1)
+  QUERY_CURRENT_AIR_QUALITY               
+
+[karaoke] (4)
+  IS_KARAOKE_RUNNING                      SHOW_KARAOKE_HISTORY
+  SING_SONG                               SWITCH_KARAOKE_MODE
+
+[ude] (33)
+  ADD_TO_FAVORITES                        CHANGE_ROUTE_OPTION
+  CHANGE_WAYPOINTS                        CHECK_DUPLICATE_ROUTE_PLACE
+  CHECK_NAVI_FUNCTION_AVAILABILITY        CLOSE_FAVORITES_LIST
+  GET_ADDRESS_BY_TYPE                     GET_DISTANCE
+  GET_ETA                                 GET_FAVORITES_LIST_STATUS
+  GET_MAX_WAYPOINTS                       GET_RECENT_LIST
+  GET_ROUTES                              GET_ROUTE_OPTION
+  GET_SUPPORTED_ROUTE_OPTIONS             GET_UNFINISHED_ROUTE
+  GET_WAYPOINTS                           IS_DETAIL_PAGE_SUPPORTED
+  IS_NAVIGATING                           OPEN_FAVORITES_LIST
+  OPEN_MAP                                QUERY_NEXT_WAYPOINT_INFO
+  REPLACE_DESTINATION                     RESUME_NAVIGATION
+  ROUTE_OVERVIEW                          SEARCH_PLACE_BY_CATEGORY
+  SEARCH_PLACE_BY_NAME                    SET_ADDRESS_BY_TYPE
+  SET_DEFAULT_ROUTE_OPTION                SET_MAP_OPTION
+  START_GUIDANCE                          STOP_GUIDANCE
+  ZOOM_MAP                                
+
+==============================================================================
+9. EVERY COMMAND TYPE THE ENGINE RECOGNISES (INTENT NAMES)
+==============================================================================
+From data_vr-BASE/asr_common/config/intent_mapping_domain_config.json: 2186 intents in 39 domains.
+Intent names are the internal names of what the engine can understand; the wording you say is free-form
+(the language understanding runs on the engine and BYD's cloud), so use these as "what is possible",
+and section 7 for phrasing. Format is  settings_and_control:<action>:<object>.
+
+Domains and number of intents:
+alarm(3)  assistant(23)  astrology(14)  business(1)  calendar(11)  calling(36)  command_and_control(936)  communication(41)  contact(20)  conversation(22)  date_time(29)  dictation(14)  favorites(3)  flights(11)  food_ordering(5)  general(153)  images(4)  knowledge(26)  media_general(79)  music(197)  news(8)  notes(12)  public_events(3)  public_transportation(5)  radio(46)  rejection(1)  rewards(5)  routing(3)  sharinginfo(7)  sports(58)  stocks(2)  swys(11)  tasks_and_reminders(14)  timer(1)  ude(171)  user_statement(82)  video(82)  weather(11)  web_app(36)
+
+IN-CAR COMMAND AND CONTROL (domain command_and_control), grouped by object:
+  (none)                                              close, desynchronize, disable, drive, enable, get, info, log_in, log_out, open, overtake, prepare, restart, save, sign_up, start_calibration, start_exporting, start_importing, stop, stop_calibration, stop_exporting, stop_importing, synchronize, toggle
+  acceleration                                        get
+  acoustic_vehicle_alerting_system                    disable, enable
+  air_purifier                                        disable, enable, na
+  air_quality                                         get, na
+  anti_glare_mirrors                                  disable, enable
+  attention_warning_mode                              change, disable, enable, reset
+  audio                                               change, desynchronize, disable, enable, get, na, set, synchronize
+  automatic_air_circulation_mode                      disable, enable, na
+  automatic_blind_mode                                disable, enable
+  automatic_exterior_light_mode                       disable, enable
+  automatic_lights_to_direction_of_travel_mode        disable, enable
+  automatic_micro_seat_adjustments                    disable, enable
+  automatic_start_stop_mode                           change, disable, enable, get_reason, get_reason_unavailable, info, reset
+  automatic_start_stop_mode_duration_traveled         get, read
+  automatic_unplug                                    disable, enable
+  automatic_window_mode                               enable, info, na
+  autonomous_driving_mode                             disable, enable, get_reason_unavailable
+  balance                                             set
+  balance_and_fade                                    set
+  bass                                                decrease, increase, maximize, minimize, na, open, reset, set
+  battery_level                                       get, show
+  blind_spot_warning_mode                             change, disable, enable, hide, reset
+  blind_spot_warning_mode_before_lane_change          enable
+  blind_spot_warning_mode_during_lane_change          enable
+  blinds                                              close, open, set, stop_change
+  boost_pressure                                      get
+  brake_pad_condition                                 get
+  brake_temperature                                   get, na, read
+  brightness                                          decrease, increase, maximize, minimize, na, set
+  call_recommendations                                disable, enable
+  car_height                                          decrease, disable, enable, get, get_available, increase, info, maximize, minimize, na, set
+  car_tilt                                            get, na
+  car_wash_mode                                       disable, enable
+  change:setting                                      cancel
+  charging_break                                      change, create, enable, get, set
+  charging_duration                                   decrease, get
+  charging_limit                                      decrease, get, increase, maximize, minimize, na, set
+  charging_power                                      get, na
+  charging_profile                                    change, create, get, na
+  child_safety_lock                                   disable, enable, na
+  climate_control                                     decrease, desynchronize, disable, enable, get, get_reason_high_energy_consumption, increase, info, keep, maximize, minimize, na, set, stop_change, synchronize
+  collision_warning_mode                              change, disable, enable, reset
+  collision_warning_mode_distance                     decrease, increase
+  compression_ratio                                   get
+  connected_device                                    polar_question
+  coolant_fluid_level                                 get, na, read
+  cooling                                             decrease, desynchronize, disable, enable, get, get_reason_high_energy_consumption, increase, info, keep, maximize, minimize, na, set, stop_change, synchronize
+  cross_traffic_assist_mode                           disable, enable
+  data                                                change, delete, desynchronize, disable, get, hide, info, na, reset
+  data_access_rights                                  allow, change, get, revoke, set
+  defrost_mode                                        disable, enable, na
+  demist_mode                                         disable, enable, na
+  device                                              connect, get_connected, get_paired, pair, set
+  device_priority                                     na, set
+  device_reminder                                     disable, enable
+  diesel_exhaust_fluid_level                          get, na, read
+  distance_traveled                                   get, na, read, reset
+  distraction_warning_mode                            disable, enable
+  door_opening_mode                                   change, disable, enable, na, set
+  doors                                               change_name, close, delete, get, lock, na, open, save, set, unlock
+  doors_open_lights_on_mode                           disable, enable
+  doors_unlocked_climate_control_on_mode              disable, enable
+  driving_analysis                                    get, na
+  driving_assist_mode                                 change, decrease, disable, enable, get, increase, info, na, reset, set
+  driving_assist_mode_distance                        change, decrease, disable, enable, hide, increase, maximize, minimize, set
+  driving_assist_mode_distance_saving_mode            disable, enable
+  driving_assist_mode_speed_adjustment                decrease, disable, enable
+  driving_assistance_profile                          change, get, info, na, set
+  driving_mode                                        change, disable, enable, get, get_available, na, set
+  duration_traveled                                   get, na, read
+  easy_trunk_mode                                     disable, enable
+  electronic_stability_control_mode                   disable, enable
+  emergency_assist                                    change, disable, enable, reset
+  emergency_brake_assist_mode                         disable, enable
+  enabled_device                                      polar_question
+  energy_consumption                                  get, get_reason, na, read, reset, set
+  energy_flow                                         change, get, na
+  energy_hatch                                        close, na, open
+  energy_hatch_side                                   get
+  environment                                         get
+  environment_mode                                    set, set_image, set_music
+  exit_warning_mode                                   disable, enable, na
+  exit_warning_mode_door_closed                       disable, enable, na
+  exit_warning_mode_door_open                         disable, enable, na
+  extra_distance_traveled                             get, na, read
+  fade                                                set
+  fan                                                 change, decrease, desynchronize, disable, enable, get, increase, info, keep, maximize, minimize, na, set, stop_change, synchronize
+  fan_above_temperature_threshold                     enable, set
+  fan_below_temperature_threshold                     disable
+  fan_direction                                       change, na, set
+  fatigue_warning_mode                                change, disable, enable, na, reset, set
+  fine_dust                                           get
+  flashing_lights_mode_locking                        disable, enable
+  flashing_lights_mode_locking_unlocking              disable, enable
+  flashing_lights_mode_unlocking                      disable, enable
+  force_meter                                         get, na
+  fragrance                                           decrease, disable, enable, increase, maximize, minimize, na, set
+  frontal_safety_assist_mode                          change, disable, enable, reset
+  fuel_efficiency_assist_mode                         disable, enable, get_reason_unavailable
+  fuel_level                                          get, na, read
+  gear                                                get
+  green_light_reminder_mode                           disable, enable
+  grounding_monitoring                                disable, enable
+  head_up_display                                     disable, enable, na
+  head_up_display_position                            change, na, set
+  heating                                             decrease, desynchronize, disable, enable, get, get_reason_high_energy_consumption, increase, info, keep, maximize, minimize, na, set, stop_change, synchronize
+  heating_above_temperature_threshold                 disable
+  heating_below_temperature_threshold                 enable, set
+  hill_holder_mode                                    disable, enable
+  hood                                                close, na, open
+  humidity                                            get
+  input_method                                        get, na
+  inside_air_mode                                     disable, enable, get, info, na
+  ionization_mode                                     change, disable, enable, get
+  key                                                 change, connect, create, delete, disable, disconnect, enable, get, get_expiration_date, info, na, pair, search, unpair
+  lane_change                                         cancel, start
+  lane_change_assist_mode                             change, disable, enable, reset
+  lane_keep_mode                                      change, disable, enable, get, info, reset
+  language                                            na, set
+  light_color                                         decrease, dislike, get, increase, na, set, shuffle
+  light_height                                        change, decrease, disable, enable, increase, na, set
+  light_mood                                          change, enable, na, set
+  light_size                                          decrease, increase, set
+  lights                                              change_duration, decrease, disable, enable, get, increase, info, maximize, minimize, na, reset, set, set_duration
+  lights_to_direction_of_travel                       change, set
+  line                                                change, correction, get, na
+  location_specific_automatic_window_opening          disable, enable
+  location_specific_disabled_lowered_mirrors          disable, enable, get, info
+  locking_mode                                        change, disable, enable, get, na, set
+  low_range                                           get_reason
+  lowered_mirrors                                     disable, enable, get, info
+  maneuver                                            delete, disable, enable, get, save
+  maneuver_assist_mode                                disable, enable, na
+  mass_air_flow_rate                                  get
+  max_ac                                              disable
+  max_defrost                                         disable, enable, na
+  menu                                                change, close, na, open
+  mirror_folding                                      disable, enable
+  mirrors                                             change, close, desynchronize, open, save, set, synchronize
+  mood                                                change, disable, enable, get, get_available, info, na, set
+  motor_load                                          get
+  motor_power                                         get
+  motor_sound                                         disable, enable, get, na, set
+  motor_temperature                                   get, na
+  next_maintenance                                    get
+  notifications                                       disable, enable, get, info, na, read, reset, set
+  odometer                                            get, read, reset, set
+  oil_level                                           get, na, read
+  oncoming_traffic_during_turn_assist_mode            disable, enable
+  outside_air_mode                                    disable, enable, na
+  overtake_prevention                                 disable, enable
+  paired_device                                       polar_question
+  parking_brake                                       disable, enable
+  parking_distance                                    get
+  parking_exit_maneuver                               enable
+  parking_exit_mode                                   enable
+  parking_maneuver                                    confirm, delete, disable, enable, save, take_over
+  parking_mode                                        disable, enable, get, hide, info, na
+  parking_mode_volume                                 decrease, increase
+  parking_search_mode                                 enable
+  parking_view_mode                                   disable, enable, na
+  password                                            change, create, delete, na, reset
+  pedestrian_warning_mode                             disable, enable, hide
+  plug_and_charge                                     disable, enable
+  powertrain                                          info
+  previous_maintenance                                get
+  privacy_mode                                        disable, enable
+  privacy_mode_when_passengers_present                enable
+  proactive_recommendations                           disable, enable, get, na, open, set
+  profile_picture                                     set
+  qr_code                                             get
+  range                                               change, get, increase, maximize
+  range_remaining                                     get, na, read, show
+  recommended_charging_time                           get
+  regenerative_power                                  disable, enable, get, info, read, set
+  remote_parking_mode                                 enable
+  reverse_assist_mode                                 disable, enable
+  roof                                                close, open
+  rule                                                change, create, delete, disable, enable, get, na, reset_learning, set, start_learning, stop, stop_learning
+  screen                                              close, open
+  screen_reader                                       disable, enable
+  seat                                                get, na, save, set
+  seat_massage                                        change, decrease, disable, dislike, enable, get, increase, info, maximize, minimize, na, set
+  seat_massage_speed                                  decrease, get, increase, maximize, minimize, na, set
+  seat_position                                       decrease, increase, na, save, set
+  seat_tilt                                           set
+  seatbelt                                            loosen, tighten
+  seatbelt_status                                     get
+  setting                                             change, disable, dislike, enable, na, open, read, reset, search, set
+  speed                                               decrease, get, increase, keep, na, read, set
+  speed_limit                                         confirm
+  speed_limit_information_mode                        disable, enable
+  speeding_warning_mode                               change, disable, enable, set
+  steering_wheel_vibration                            decrease, increase
+  stop_during_emergency_assist_mode                   disable, enable
+  system_sound                                        change, disable, enable, info, na, set
+  tap_turn_signal                                     set
+  temperature                                         decrease, desynchronize, get, get_reason_high_energy_consumption, increase, keep, maximize, minimize, na, set, stop_change, synchronize
+  theme                                               change, enable, na, reset, set
+  tire                                                change, set
+  tire_friction                                       get
+  tire_pressure                                       change, get, info, na, read, set
+  tire_slip                                           get
+  tire_temperature                                    get, na
+  tone                                                decrease, disable, enable, increase
+  torque                                              get
+  traffic_light_timing_assist_mode                    disable, enable
+  traffic_sign_assist_mode                            change, disable, enable, reset
+  traffic_sign_assist_mode_distance                   decrease, increase
+  traffic_sign_assist_trailer_mode                    disable, enable
+  trailer_backup_assist_mode                          change, disable, enable, reset
+  transmission_temperature                            get, na
+  treble                                              decrease, increase, maximize, minimize, na, open, reset, set
+  trigger                                             change, change_name, get, save, set
+  trip_meter                                          enable, get, na, read, reset, set
+  trunk                                               close, na, open
+  trunk_opening_height                                set
+  unintentional_lane_departure_warning_mode           disable, enable, hide
+  unintentional_lane_departure_warning_mode_with_risk enable, na
+  unintentional_lane_departure_warning_mode_without_riskenable, na
+  unpowered_mode_distance_traveled                    get, read
+  user_profile                                        change, change_name, connect, create, delete, desynchronize, disconnect, enable, get, get_reason, info, log_in, log_out, na, reset, set, synchronize
+  user_profile_rights                                 change, get, get_reason, set
+  user_profile_role                                   change, get, get_reason, set
+  verbosity                                           change, decrease, disable, enable, increase, na, set
+  virtual_cockpit                                     disable, enable
+  voice_interruption                                  disable, enable
+  voiceprint                                          create, delete, enable, get, na, start_learning, stop_learning, user_authentication
+  volume                                              decrease, increase, maximize, minimize, mute, na, reset, set, unmute
+  wake_word                                           create, delete, disable, enable, get, na, reset, set
+  widget                                              change
+  window_transparency                                 disable, enable
+  windows                                             change, close, na, open, set, stop_change, tilt
+  wiper_fluid_level                                   get, na, read
+  wipers                                              change, decrease, disable, enable, increase, maximize, minimize, na, set
+  zoom                                                change, decrease, increase, maximize, minimize, na, reset, set
+
+Other command_and_control intents (camera, exercising, locations and misc):
+  camera:change
+  camera:disable
+  camera:enable
+  camera:enable:pull_over
+  camera:get
+  camera:hide
+  camera:na
+  camera:record
+  camera:statement:dirty
+  camera:statement:wash
+  camera:stop:recording
+  camera:stop_recording
+  camera:take_picture
+  camera:take_selfie
+  camera:video:delete
+  camera:video:download
+  camera:video:save
+  camera:video:view
+  command_and_control
+  exercising:decrease
+  exercising:increase
+  exercising:set
+  exercising:start
+  exercising:stop
+  locations:change_departure_time
+  locations:delete_departure_time
+  locations:disable_departure_time
+  locations:enable_departure_time
+  locations:get_departure_time
+  locations:get_route_continuation_time
+  locations:set_departure_time
+
+Other domains, intent names (vehicle-adjacent: media, radio, calling, ude, general are shown in full):
+
+[media_general] (79)
+  media:add_label
+  media:add_label:channel
+  media:add_label:episode
+  media:add_label:genre
+  media:add_to_library
+  media:change
+  media:change:channel
+  media:change:channel_list
+  media:change:episode
+  media:change:genre
+  media:change:source
+  media:confirm:genre
+  media:correction:channel
+  media:correction:episode
+  media:correction:genre
+  media:create:channel
+  media:delete:channel
+  media:delete_label:channel
+  media:dislike
+  media:dislike:channel
+  media:dislike:episode
+  media:fast_forward
+  media:get
+  media:get:channel
+  media:get:channel_list
+  media:get:episode
+  media:get:genre
+  media:get:source
+  media:get_duration
+  media:get_program_guide
+  media:info
+  media:info:genre
+  media:mute
+  media:na
+  media:na:channel
+  media:na:channel_list
+  media:na:episode
+  media:na:genre
+  media:na:release_date
+  media:pause
+  media:play
+  media:play:channel
+  media:play:episode
+  media:play:genre
+  media:play:release_date
+  media:play:source
+  media:read
+  media:read:channel
+  media:read:channel_list
+  media:read:genre
+  media:repeat
+  media:reposition
+  media:restart
+  media:resume
+  media:rewind
+  media:search
+  media:search:channel
+  media:search:channel_list
+  media:search:genre
+  media:search:source
+  media:set
+  media:set:channel
+  media:set:genre
+  media:set:source
+  media:show_currently_playing
+  media:show_currently_playing:episode
+  media:show_currently_playing:genre
+  media:show_currently_playing:source
+  media:shuffle
+  media:shuffle:folder
+  media:skip
+  media:skip:channel
+  media:skip:episode
+  media:sort:channel
+  media:stop
+  media:turn_off_repeat
+  media:turn_off_shuffle
+  media:turn_on_repeat
+  media:unmute
+
+[music] (197)
+  mediamusic:add_label
+  mediamusic:add_label:album
+  mediamusic:add_label:artist
+  mediamusic:add_label:audiobook
+  mediamusic:add_label:playlist
+  mediamusic:add_label:podcast
+  mediamusic:add_label:song
+  mediamusic:add_to_library:song
+  mediamusic:add_to_playlist
+  mediamusic:add_to_playlist:song
+  mediamusic:change
+  mediamusic:change:album
+  mediamusic:change:artist
+  mediamusic:change:audio_program
+  mediamusic:change:audiobook
+  mediamusic:change:chapter
+  mediamusic:change:genre
+  mediamusic:change:play:album
+  mediamusic:change:play:artist
+  mediamusic:change:play:song
+  mediamusic:change:playlist
+  mediamusic:change:podcast
+  mediamusic:change:song
+  mediamusic:change:source
+  mediamusic:confirm:album
+  mediamusic:confirm:artist
+  mediamusic:confirm:composer
+  mediamusic:correction
+  mediamusic:correction:album
+  mediamusic:correction:artist
+  mediamusic:correction:audiobook
+  mediamusic:correction:chapter
+  mediamusic:correction:composer
+  mediamusic:correction:genre
+  mediamusic:correction:playlist
+  mediamusic:correction:podcast
+  mediamusic:correction:song
+  mediamusic:delete_label
+  mediamusic:delete_label:album
+  mediamusic:delete_label:audiobook
+  mediamusic:delete_label:song
+  mediamusic:dislike
+  mediamusic:dislike:album
+  mediamusic:dislike:audiobook
+  mediamusic:dislike:podcast
+  mediamusic:dislike:song
+  mediamusic:download:song
+  mediamusic:fast_forward
+  mediamusic:fast_forward:song
+  mediamusic:follow:album
+  mediamusic:follow:artist
+  mediamusic:get
+  mediamusic:get:album
+  mediamusic:get:album_cover
+  mediamusic:get:artist
+  mediamusic:get:audiobook
+  mediamusic:get:author
+  mediamusic:get:chapter
+  mediamusic:get:chart
+  mediamusic:get:composer
+  mediamusic:get:episode
+  mediamusic:get:folder
+  mediamusic:get:genre
+  mediamusic:get:playback_queue
+  mediamusic:get:playlist
+  mediamusic:get:podcast
+  mediamusic:get:song
+  mediamusic:get:source
+  mediamusic:get_duration:album
+  mediamusic:get_duration:audiobook
+  mediamusic:get_duration:podcast
+  mediamusic:get_duration:song
+  mediamusic:info
+  mediamusic:info:album
+  mediamusic:info:artist
+  mediamusic:info:audio_program
+  mediamusic:info:composer
+  mediamusic:info:genre
+  mediamusic:info:song
+  mediamusic:like
+  mediamusic:like:song
+  mediamusic:lyrics
+  mediamusic:mute
+  mediamusic:na
+  mediamusic:na:album
+  mediamusic:na:artist
+  mediamusic:na:audio_program
+  mediamusic:na:audiobook
+  mediamusic:na:chapter
+  mediamusic:na:chart
+  mediamusic:na:composer
+  mediamusic:na:folder
+  mediamusic:na:genre
+  mediamusic:na:playlist
+  mediamusic:na:podcast
+  mediamusic:na:song
+  mediamusic:open:playlist
+  mediamusic:pause
+  mediamusic:play
+  mediamusic:play:album
+  mediamusic:play:artist
+  mediamusic:play:audio_program
+  mediamusic:play:audiobook
+  mediamusic:play:chapter
+  mediamusic:play:chart
+  mediamusic:play:composer
+  mediamusic:play:episode
+  mediamusic:play:genre
+  mediamusic:play:joke
+  mediamusic:play:playlist
+  mediamusic:play:podcast
+  mediamusic:play:release_date
+  mediamusic:play:song
+  mediamusic:play:source
+  mediamusic:playall
+  mediamusic:read
+  mediamusic:read:album
+  mediamusic:read:artist
+  mediamusic:read:composer
+  mediamusic:read:song
+  mediamusic:repeat
+  mediamusic:repeat:album
+  mediamusic:repeat:category
+  mediamusic:repeat:chapter
+  mediamusic:repeat:playlist
+  mediamusic:repeat:song
+  mediamusic:reposition
+  mediamusic:reset_playback_order
+  mediamusic:reset_playback_order:song
+  mediamusic:restart
+  mediamusic:restart:album
+  mediamusic:restart:chapter
+  mediamusic:restart:playlist
+  mediamusic:restart:song
+  mediamusic:resume
+  mediamusic:resume:audiobook
+  mediamusic:rewind
+  mediamusic:rewind:song
+  mediamusic:search
+  mediamusic:search:album
+  mediamusic:search:artist
+  mediamusic:search:audiobook
+  mediamusic:search:category
+  mediamusic:search:chapter
+  mediamusic:search:chart
+  mediamusic:search:composer
+  mediamusic:search:episode
+  mediamusic:search:genre
+  mediamusic:search:playlist
+  mediamusic:search:podcast
+  mediamusic:search:release_date
+  mediamusic:search:song
+  mediamusic:search:source
+  mediamusic:set:album
+  mediamusic:set:artist
+  mediamusic:set:composer
+  mediamusic:set:genre
+  mediamusic:set:song
+  mediamusic:set:source
+  mediamusic:show_currently_playing
+  mediamusic:show_currently_playing:album
+  mediamusic:show_currently_playing:artist
+  mediamusic:show_currently_playing:audiobook
+  mediamusic:show_currently_playing:composer
+  mediamusic:show_currently_playing:genre
+  mediamusic:show_currently_playing:playlist
+  mediamusic:show_currently_playing:podcast
+  mediamusic:show_currently_playing:song
+  mediamusic:show_currently_playing:source
+  mediamusic:shuffle
+  mediamusic:shuffle:album
+  mediamusic:shuffle:artist
+  mediamusic:shuffle:composer
+  mediamusic:shuffle:playlist
+  mediamusic:shuffle:song
+  mediamusic:sing:song
+  mediamusic:single
+  mediamusic:skip
+  mediamusic:skip:album
+  mediamusic:skip:song
+  mediamusic:stop
+  mediamusic:synchronize
+  mediamusic:trivia:album
+  mediamusic:trivia:artist
+  mediamusic:trivia:author
+  mediamusic:turn_off_repeat
+  mediamusic:turn_off_repeat:album
+  mediamusic:turn_off_repeat:chapter
+  mediamusic:turn_off_repeat:playlist
+  mediamusic:turn_off_repeat:song
+  mediamusic:turn_off_shuffle
+  mediamusic:turn_on_repeat
+  mediamusic:turn_on_repeat:album
+  mediamusic:turn_on_repeat:chapter
+  mediamusic:turn_on_repeat:playlist
+  mediamusic:turn_on_repeat:song
+  mediamusic:unmute
+
+[radio] (46)
+  mediamusic:add_label:radiostation
+  mediamusic:change:radio_frequency
+  mediamusic:change:radio_type
+  mediamusic:change:radiostation
+  mediamusic:change:radiostation_list
+  mediamusic:correction:radio_frequency
+  mediamusic:correction:radio_type
+  mediamusic:correction:radiostation
+  mediamusic:create:radiostation
+  mediamusic:delete:radiostation
+  mediamusic:delete_label:radiostation
+  mediamusic:dislike:radiostation
+  mediamusic:get:radio_frequency
+  mediamusic:get:radio_type
+  mediamusic:get:radiostation
+  mediamusic:get:radiostation_list
+  mediamusic:get_program_guide
+  mediamusic:info:radiostation
+  mediamusic:mute:radiostation
+  mediamusic:na:radio_frequency
+  mediamusic:na:radio_type
+  mediamusic:na:radiostation
+  mediamusic:na:radiostation_list
+  mediamusic:play:radio_frequency
+  mediamusic:play:radio_type
+  mediamusic:play:radiostation
+  mediamusic:read:radiostation
+  mediamusic:read:radiostation_list
+  mediamusic:recommend:radiostation
+  mediamusic:recommend:radiostation_list
+  mediamusic:reposition:radiostation
+  mediamusic:resume:radiostation
+  mediamusic:search:radio_frequency
+  mediamusic:search:radio_type
+  mediamusic:search:radiostation
+  mediamusic:search:radiostation_list
+  mediamusic:set:radio_frequency
+  mediamusic:set:radio_type
+  mediamusic:set:radiostation
+  mediamusic:show_currently_playing:radio_frequency
+  mediamusic:show_currently_playing:radio_type
+  mediamusic:show_currently_playing:radiostation
+  mediamusic:sort:radiostation
+  mediamusic:stop:radio_type
+  mediamusic:stop:radiostation
+  mediamusic:unmute:radiostation
+
+[calling] (36)
+  calling:answer:incoming_call
+  calling:call
+  calling:call:business
+  calling:call:contact
+  calling:call:phone_number
+  calling:call:phone_number:select
+  calling:callback
+  calling:cancel
+  calling:correct:call
+  calling:correct:call:business
+  calling:correct:call:contact
+  calling:correct:call:phone_number
+  calling:end
+  calling:get
+  calling:get:answered_call
+  calling:get:incoming_call
+  calling:get:missed_call
+  calling:get:outgoing_call
+  calling:get_most_called
+  calling:na
+  calling:na:answered_call
+  calling:na:incoming_call
+  calling:na:missed_call
+  calling:na:outgoing_call
+  calling:read
+  calling:redial
+  calling:reject:incoming_call
+  calling:search
+  calling:search:answered_call
+  calling:search:incoming_call
+  calling:search:missed_call
+  calling:search:outgoing_call
+  calling:set_default:phone_number
+  voicemail:call
+  voicemail:get
+  voicemail:play
+
+[communication] (41)
+  message:add:body
+  message:add:quick_reply
+  message:add:recipient
+  message:add:title
+  message:block
+  message:call:recipient
+  message:call:sender
+  message:change
+  message:change:recipient
+  message:confirm:send
+  message:correction
+  message:decline:send
+  message:delete
+  message:delete:recipient
+  message:delete:title
+  message:forward
+  message:get
+  message:get:contact_information
+  message:get:title
+  message:info
+  message:info:sender
+  message:launch:web
+  message:na
+  message:na:recipient
+  message:read
+  message:read:title
+  message:repeat
+  message:reply
+  message:reply:quick_reply
+  message:restart
+  message:resume
+  message:resume:read
+  message:save
+  message:search
+  message:send
+  message:set
+  message:set:phone_number
+  message:unblock
+  social_media:follow
+  social_media:post
+  twitter:display:timeline
+
+[contact] (20)
+  contact:add
+  contact:add:contact_relation
+  contact:add_favorite
+  contact:add_label
+  contact:change
+  contact:correction
+  contact:delete
+  contact:delete:contact_relation
+  contact:get
+  contact:get:address_book
+  contact:info
+  contact:lookup
+  contact:na
+  contact:na:address_book
+  contact:read
+  contact:read:address_book
+  contact:repeat
+  contact:search:address_book
+  contact:set
+  contact:share
+
+[ude] (171)
+  business:add
+  business:add_favorite
+  business:add_label
+  business:address
+  business:automotive:question_origin
+  business:change
+  business:confirm:pay
+  business:decline
+  business:delete:reservation
+  business:delete_favorite
+  business:delete_label
+  business:gas:change_gas_pump
+  business:gas:get_gas_pump
+  business:gas:pay
+  business:get
+  business:get:reservation
+  business:get_closing_time
+  business:get_opening_time
+  business:na:reservation
+  business:name
+  business:opening_hours
+  business:parking:pay
+  business:phone_number
+  business:reserve
+  business:restaurant:reserve
+  business:search
+  business:set
+  business:statement
+  business:website
+  locations:add
+  locations:add:trip_type
+  locations:add_favorite
+  locations:add_label
+  locations:change
+  locations:change:zoom
+  locations:decline
+  locations:decline:add_waypoint
+  locations:decline:start_directions
+  locations:decrease:brightness
+  locations:decrease:zoom
+  locations:delete_favorite
+  locations:delete_label
+  locations:disable:auto_zoom
+  locations:disable:avoid_path_modifier
+  locations:disable:clear_traffic_overlay
+  locations:disable:directions_mode
+  locations:disable:icon
+  locations:disable:info_directions
+  locations:disable:maneuver_overlay
+  locations:disable:notifications
+  locations:disable:path_modifier
+  locations:disable:range_overlay
+  locations:disable_map_color
+  locations:disable_traffic
+  locations:disable_traffic_overlay
+  locations:enable:auto_zoom
+  locations:enable:avoid_path_modifier
+  locations:enable:clear_traffic_overlay
+  locations:enable:directions_mode
+  locations:enable:drawing_mode
+  locations:enable:icon
+  locations:enable:maneuver_overlay
+  locations:enable:notifications
+  locations:enable:path_modifier
+  locations:enable:range_overlay
+  locations:enable_traffic_overlay
+  locations:get
+  locations:get:assisted_driving_zones
+  locations:get:autonomous_driving_zones
+  locations:get:directions_mode
+  locations:get:notifications
+  locations:get:path_modifier
+  locations:get_arrival_location
+  locations:get_map:assisted_driving_zones
+  locations:get_map:autonomous_driving_zones
+  locations:get_speed_limit
+  locations:hide:icon
+  locations:import_directions
+  locations:increase:brightness
+  locations:increase:zoom
+  locations:info_directions
+  locations:maximize:zoom
+  locations:minimize:zoom
+  locations:mute_directions
+  locations:na:auto_zoom
+  locations:na:clear_traffic_overlay
+  locations:na:directions_mode
+  locations:na:maneuver_overlay
+  locations:na:notifications
+  locations:na:path_modifier
+  locations:na:range_overlay
+  locations:na:trip_type
+  locations:na:zoom
+  locations:name
+  locations:polar_question:green_zone_access
+  locations:recalculate_directions
+  locations:repeat_directions
+  locations:reset_directions
+  locations:reset_map
+  locations:resume_directions
+  locations:save_directions
+  locations:search
+  locations:search:assisted_driving_zones
+  locations:search:autonomous_driving_zones
+  locations:search:w3w
+  locations:set
+  locations:set:notifications
+  locations:set:zoom
+  locations:set_default:path_modifier
+  locations:set_map_color
+  locations:share_my_location
+  locations:show_directions
+  locations:skip
+  locations:start_directions
+  locations:statement
+  locations:stop:share_my_location
+  locations:stop_directions
+  locations:unmute_directions
+  locations:where_am_i
+  roadrestriction:search
+  trafficviolation:inquiry
+  ude:add_destination
+  ude:add_waypoint
+  ude:can_route_be_completed
+  ude:change_destination
+  ude:change_directions
+  ude:change_map
+  ude:change_map:traffic
+  ude:change_waypoint
+  ude:correct_directions
+  ude:correction
+  ude:delete
+  ude:delete_destination
+  ude:delete_waypoint
+  ude:disable
+  ude:disable_map
+  ude:disable_map:traffic
+  ude:enable
+  ude:free_text_search
+  ude:get_alternative_directions
+  ude:get_arrival_time
+  ude:get_battery_level
+  ude:get_directions
+  ude:get_directions:w3w
+  ude:get_distance
+  ude:get_distance:traffic
+  ude:get_duration
+  ude:get_duration:traffic
+  ude:get_map
+  ude:get_map:traffic
+  ude:get_rating
+  ude:get_reason:traffic
+  ude:get_review
+  ude:get_route_charging_stops
+  ude:get_route_charging_time
+  ude:get_route_simulation
+  ude:hide
+  ude:info
+  ude:knowledge
+  ude:knowledge:uncategorized
+  ude:na
+  ude:na:w3w
+  ude:polar_question
+  ude:price
+  ude:question_elevation
+  ude:read
+  ude:recommend
+  ude:show_details
+  ude:statement:bad
+  ude:statement:good
+  ude:traffic
+
+[general] (153)
+  generic:accept
+  generic:add
+  generic:add_favorite
+  generic:add_label
+  generic:add_label:phone_number
+  generic:back
+  generic:cancel
+  generic:change
+  generic:change:category
+  generic:change:connection_type
+  generic:change:device
+  generic:change:payment_type
+  generic:change:source
+  generic:change:temperature_unit
+  generic:change_name
+  generic:change_part
+  generic:charge:battery
+  generic:close
+  generic:close:dialog
+  generic:confirm
+  generic:confirm:pay
+  generic:correct_part
+  generic:correction
+  generic:decline
+  generic:decline:record
+  generic:decrease
+  generic:delete
+  generic:delete:recording
+  generic:delete_favorite
+  generic:delete_label
+  generic:desynchronize
+  generic:dislike:body
+  generic:dislike:color
+  generic:enable_spelling
+  generic:end
+  generic:exit
+  generic:filter
+  generic:get
+  generic:get:air_quality
+  generic:get:category
+  generic:get:connection_type
+  generic:get:device
+  generic:get:duration_remaining
+  generic:get:easter_egg
+  generic:get:folder
+  generic:get:price
+  generic:get:problem
+  generic:get:size
+  generic:get:sound
+  generic:get:source
+  generic:get:vehicle_identification_number
+  generic:get:vignette
+  generic:get_activity
+  generic:get_creator
+  generic:get_download
+  generic:get_rating
+  generic:get_reason
+  generic:get_status:electronic_toll_card
+  generic:get_update
+  generic:hide
+  generic:increase
+  generic:info
+  generic:info:device
+  generic:info:easter_egg
+  generic:info:sound
+  generic:info:vignette
+  generic:keep
+  generic:maximize
+  generic:minimize
+  generic:na
+  generic:na:air_quality
+  generic:na:category
+  generic:na:connection_type
+  generic:na:custom
+  generic:na:device
+  generic:na:electronic_toll_card
+  generic:na:file
+  generic:na:payment_type
+  generic:na:source
+  generic:na:temperature_unit
+  generic:na:vignette
+  generic:nvsl:enroll
+  generic:open
+  generic:open:device
+  generic:pause
+  generic:pause:charge:battery
+  generic:pause:dialog
+  generic:pause:game
+  generic:pay
+  generic:play
+  generic:play:connection_type
+  generic:play:device
+  generic:play:recording
+  generic:play:source
+  generic:polar_question
+  generic:polar_question:breakdown
+  generic:polar_question:good
+  generic:polar_question:problem
+  generic:polar_question:recall
+  generic:purchase
+  generic:read
+  generic:read:number
+  generic:read:phone_number
+  generic:read:vehicle_identification_number
+  generic:recommend
+  generic:record
+  generic:reject
+  generic:repeat
+  generic:repeat:category
+  generic:repeat:number
+  generic:repeat:phone_number
+  generic:repeat:question
+  generic:reset
+  generic:respond
+  generic:restart
+  generic:restart:dialog
+  generic:resume
+  generic:resume:device
+  generic:review
+  generic:save
+  generic:save:device
+  generic:search
+  generic:search:breakdown
+  generic:search:category
+  generic:search:easter_egg
+  generic:search:problem
+  generic:search:recording
+  generic:search:source
+  generic:search:vehicle_identification_number
+  generic:set
+  generic:set:device
+  generic:set:source
+  generic:shuffle
+  generic:skip
+  generic:skip:question
+  generic:sort
+  generic:sort_by_default
+  generic:start
+  generic:start:source
+  generic:stop
+  generic:stop:charge:battery
+  generic:stop:game
+  generic:stop:read
+  generic:stop:video
+  generic:stop_recording
+  generic:swap:device
+  generic:synchronize
+  generic:turn_off_shuffle
+  help:general
+  help:get_hint
+  help:tutorial
+  help:user_manual
+  help:what_can_i_say
+
+[assistant] (23)
+  assistant:change
+  assistant:change:appearance
+  assistant:change:greeting
+  assistant:change:voice
+  assistant:decrease:speed
+  assistant:decrease:volume
+  assistant:disable
+  assistant:disable:voice_light
+  assistant:enable
+  assistant:enable:voice_light
+  assistant:get
+  assistant:get_documentation
+  assistant:get_most_used
+  assistant:increase:volume
+  assistant:info
+  assistant:introduction
+  assistant:na
+  assistant:na:voice
+  assistant:restart
+  assistant:set
+  assistant:set:appearance
+  assistant:set:voice
+  rename:assistant
+
+[date_time] (29)
+  date_time:change
+  date_time:change:time_format
+  date_time:get
+  date_time:get:date
+  date_time:get:date_and_time
+  date_time:get:day_of_week
+  date_time:get:time
+  date_time:get_count:date
+  date_time:get_date_difference
+  date_time:get_future:date
+  date_time:get_future:day_of_week
+  date_time:get_future:time
+  date_time:get_past:date
+  date_time:get_past:day_of_week
+  date_time:get_past:time
+  date_time:get_time_difference
+  date_time:get_time_zone
+  date_time:get_time_zone_difference
+  date_time:na
+  date_time:na:date
+  date_time:na:date_and_time
+  date_time:na:day_of_week
+  date_time:na:time
+  date_time:na:time_format
+  date_time:polar_question
+  date_time:polar_question_future
+  date_time:polar_question_past
+  date_time:set
+  date_time:set:time_format
+
+[timer] (1)
+  timer:get
+
+[alarm] (3)
+  alarm:add
+  alarm:delete
+  alarm:save
+
+[weather] (11)
+  business:winter_sports:conditions
+  weather:change:temperature_unit
+  weather:compare
+  weather:disable
+  weather:disable_map
+  weather:get_fine_dust
+  weather:hide
+  weather:hide_map
+  weather:lookup
+  weather:map
+  weather:na
+
+[routing] (3)
+  freechat:uncategorized
+  knowledge:uncategorized
+  lottery:uncategorized
+
+[user_statement] (82)
+  statement:ache
+  statement:air_good
+  statement:alone
+  statement:angry
+  statement:bad
+  statement:bad_visibility
+  statement:bathroom_break
+  statement:birthday
+  statement:bored
+  statement:breakdown
+  statement:broke
+  statement:cant_drive_further
+  statement:cant_hear
+  statement:cold
+  statement:collision
+  statement:comfortable
+  statement:concentrate
+  statement:decline:tired
+  statement:detox
+  statement:dirty
+  statement:dont_interact
+  statement:dont_listen
+  statement:dont_talk
+  statement:dry
+  statement:emergency
+  statement:energetic
+  statement:error
+  statement:error_body
+  statement:excited
+  statement:fast
+  statement:fresh_air
+  statement:full_tank
+  statement:good
+  statement:good_visibility
+  statement:happy
+  statement:hot
+  statement:humid
+  statement:hungry
+  statement:hurry
+  statement:ignorance
+  statement:implicit_poi
+  statement:injury
+  statement:interruption
+  statement:listen
+  statement:loud
+  statement:low_battery
+  statement:need_entertainment
+  statement:not_alone
+  statement:not_cold
+  statement:not_hot
+  statement:not_sweaty
+  statement:park
+  statement:privacy
+  statement:rain
+  statement:reading
+  statement:ready
+  statement:relax
+  statement:return_time
+  statement:sad
+  statement:season
+  statement:sick
+  statement:sky
+  statement:slippery
+  statement:slow
+  statement:smoke
+  statement:snow
+  statement:sticky
+  statement:stinky
+  statement:stop_change
+  statement:stop_change:fresh_air
+  statement:stop_change:loud
+  statement:stop_change:reading
+  statement:stop_change:relax
+  statement:stop_change:stinky
+  statement:stop_change:tired
+  statement:sweaty
+  statement:talk
+  statement:thirsty
+  statement:tired
+  statement:wait
+  statement:wash
+  statement:wind
+
+Domains not expanded here (entertainment/web/knowledge; no car control): astrology, business, calendar, conversation, dictation, favorites, flights, food_ordering, images, knowledge, news, notes, public_events, public_transportation, rejection, rewards, sharinginfo, sports, stocks, swys, tasks_and_reminders, video, web_app.
+
+==============================================================================
+10. OPEN ITEMS
+==============================================================================
+
+ - Window: front right, and the 4/5 (half / small gap) codes are untried. Rear windows do not exist on this car.
+ - Read the remaining vehiclecontrol handlers (interior light, drive mode, road mode,
+   camera, ADAS, child lock, engine sound, mirror heating; NOT sunroof or trunk, the car has neither) and decode their values (section 3).
+ - Rear tray: voiceCtlBackDoor(1) opens, (3) closes (decoded only). Try it with someone at the car; the read is getBackDoorCurState.
+ - Rear power points: find how BYD's V2L / outlet switch is written (not in the voice assistant).
+ - Screen brightness: confirm by eye that the panel dims; if not, find BYD's own brightness setting.
+ - Mobile data: find BYD's real switch (the standard Android route does nothing on the T-Box connection).
+ - Recirculate: the assistant passes 1 as the first argument; our app and BYD's climate screen pass 0. Both are
+   believed equivalent; only the (0, x) form has been exercised.
+ - A real spoken test (someone speaks, overlay transcript photographed) for each action in section 5, step 8.
+ - Keep this file with BYD_SHARK6_REFERENCE.md ("Calls BYD's own voice assistant makes") when either changes.
+
