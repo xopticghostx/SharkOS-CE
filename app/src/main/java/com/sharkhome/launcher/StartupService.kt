@@ -73,10 +73,14 @@ class StartupService : Service() {
         // intent == null is Android restarting the service after a memory kill mid-drive: not a start-up, so the
         // driver's current settings are left alone.
         if (intent != null) restore(reason)
-        // Only a real boot or the car waking (display on, reported by the wake helper) brings SharkOS-CE to the
-        // front. The process also restarts whenever Android or BYD's memory manager kills it in the background (or
-        // the media listener rebinds); opening the app then would yank the driver out of whatever they were using.
-        if ((reason == "boot" || reason == "wake") && container.prefs.openOnStart) openShark()
+        // Only a real boot, car wake, or an in-app self-update brings SharkOS-CE to the front.
+        // Background restarts from Android/BYD memory management (or PC adb installs) leave the current app alone.
+        if (reason == "update_reopen") {
+            Log.e(TAG, "startup service: reopening SharkOS-CE after in-app update")
+            openShark()
+        } else if ((reason == "boot" || reason == "wake") && container.prefs.openOnStart) {
+            openShark()
+        }
         return START_STICKY
     }
 
@@ -148,21 +152,41 @@ class StartupService : Service() {
     }
 }
 
-/** Boot hook. System boot and power broadcasts. */
+/** Boot hook. System boot, power, and package-replace broadcasts. */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action ?: return
         if (action.isBlank()) return
         val prefs = context.container.prefs
-        // An app update isn't a start-up: keep the helper running but don't change what's on screen.
-        val reason = if (action == Intent.ACTION_MY_PACKAGE_REPLACED) "update" else "boot"
+        val isReplace = action == Intent.ACTION_MY_PACKAGE_REPLACED
+        // Reopen automatically when the user just ran the in-app updater (including upgrades from older builds that
+        // didn't set reopenAfterUpdateAt, detected via a freshly downloaded SharkOS-CE APK in external files/updates).
+        // A PC `adb install` leaves no update APK there, so it keeps the current screen untouched.
+        val reopenUpdate = isReplace && (prefs.consumeReopenAfterUpdate() || hasRecentUpdateApk(context))
+        val reason = when {
+            reopenUpdate -> "update_reopen"
+            isReplace -> "update"
+            else -> "boot"
+        }
         if (prefs.autoStart) {
-            StartupService.start(context, reason) // the service brings SharkOS-CE to the front on "boot"
-        } else if (reason == "boot" && prefs.openOnStart) {
+            StartupService.start(context, reason) // the service brings SharkOS-CE to the front on boot/update_reopen
+        } else if (reopenUpdate || (reason == "boot" && prefs.openOnStart)) {
             val i = Intent(context, MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
             }
             runCatching { context.startActivity(i) }
         }
+    }
+
+    private fun hasRecentUpdateApk(ctx: Context): Boolean {
+        val dir = ctx.getExternalFilesDir(null)?.let { java.io.File(it, "updates") } ?: return false
+        val now = System.currentTimeMillis()
+        return dir.listFiles()?.any { f ->
+            f.isFile &&
+                f.name.startsWith("SharkOS-CE-", ignoreCase = true) &&
+                f.name.endsWith(".apk", ignoreCase = true) &&
+                !f.name.contains("helper", ignoreCase = true) &&
+                (now - f.lastModified()) in 0L..180_000L
+        } == true
     }
 }

@@ -217,12 +217,15 @@ class AppUpdater(
             }
 
             if (adbResult) {
+                prefs.markReopenAfterUpdate()
                 val res = withContext(Dispatchers.IO) {
                     runCatching {
                         val size = apkFile.length()
                         val p = LocalAdb.q(apkFile.absolutePath)
-                        // Note: replacing our own package restarts the process, so chain `am start` after `pm install`.
-                        adb.shell("cat $p | pm install -r -g -S $size && am start -n ${ctx.packageName}/.MainActivity")
+                        // Replacing our own package kills this process and drops the loopback ADB socket.
+                        // `trap '' HUP` lets the chained `am start` survive SIGHUP, and `markReopenAfterUpdate()`
+                        // makes BootReceiver/StartupService reopen MainActivity on MY_PACKAGE_REPLACED as a backup.
+                        adb.shell("trap '' HUP; cat $p | pm install -r -g -S $size && am start -n ${ctx.packageName}/.MainActivity >/dev/null 2>&1 </dev/null")
                     }
                 }
                 val out = res.getOrNull()?.output?.trim().orEmpty()
@@ -231,6 +234,7 @@ class AppUpdater(
                     _state.value = State.UpToDate(release, release.versionString)
                     return@launch
                 }
+                prefs.clearReopenAfterUpdate()
                 if (res.isSuccess && out.isNotBlank() && !out.contains("Success")) {
                     _state.value = State.Error("ADB install failed: ${out.take(180)}")
                     return@launch

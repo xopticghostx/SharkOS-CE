@@ -426,6 +426,30 @@ class Prefs(ctx: Context) {
         get() = sp.getLong("lastUpdateCheckMs", 0L)
         set(v) = edit { putLong("lastUpdateCheckMs", v) }
 
+    /**
+     * Marks that the in-app updater is about to replace our own APK so the new process reopens [MainActivity] on
+     * MY_PACKAGE_REPLACED. Uses synchronous commit() because pm install kills this process immediately after.
+     */
+    @android.annotation.SuppressLint("ApplySharedPref")
+    fun markReopenAfterUpdate() {
+        sp.edit().putLong("reopenAfterUpdateAt", System.currentTimeMillis()).commit()
+    }
+
+    @android.annotation.SuppressLint("ApplySharedPref")
+    fun clearReopenAfterUpdate() {
+        sp.edit().remove("reopenAfterUpdateAt").commit()
+    }
+
+    /** Returns true once if an in-app self-update was triggered within the last 2 minutes. */
+    @android.annotation.SuppressLint("ApplySharedPref")
+    fun consumeReopenAfterUpdate(): Boolean {
+        val ts = sp.getLong("reopenAfterUpdateAt", 0L)
+        if (ts == 0L) return false
+        sp.edit().remove("reopenAfterUpdateAt").commit()
+        val age = System.currentTimeMillis() - ts
+        return age in 0L..120_000L
+    }
+
     val presets: List<ClimatePreset>
         get() = (ClimatePreset.BUILT_IN + customPresets).filter { !it.name.contains("Pet", ignoreCase = true) }
 }
