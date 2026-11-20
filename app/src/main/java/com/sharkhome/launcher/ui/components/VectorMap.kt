@@ -25,6 +25,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.sharkhome.launcher.container
 import com.sharkhome.launcher.ui.C
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
@@ -108,7 +109,16 @@ fun VectorMap(modifier: Modifier = Modifier, zoom: Double = 14.0) {
         m.setStyle(Style.Builder().fromUri(styleUrl)) { style ->
             loadedStyle = styleUrl
             enableLocation(ctx, m, style, zoom, accent)
+            ctx.container.motion.fix.value?.let { feed(m, it) }
         }
+    }
+
+    // The arrow and camera follow the app's own GPS listener (MotionRepository). MapLibre's default location engine
+    // left one GPS listener behind every time the app came back to the front (5 stuck after two round trips, seen on
+    // the car 20 Nov 2026), and its "better fix" filter can drop fixes; GitHub #8 reported the map not following.
+    LaunchedEffect(map) {
+        val m = map ?: return@LaunchedEffect
+        ctx.container.motion.fix.collect { loc -> if (loc != null) feed(m, loc) }
     }
 
     Box(modifier) {
@@ -141,7 +151,7 @@ private fun enableLocation(ctx: Context, map: MapLibreMap, style: Style, zoom: D
         val lc = map.locationComponent
         lc.activateLocationComponent(
             LocationComponentActivationOptions.builder(ctx, style)
-                .useDefaultLocationEngine(true)
+                .useDefaultLocationEngine(false)
                 .locationComponentOptions(options)
                 .build(),
         )
@@ -150,4 +160,21 @@ private fun enableLocation(ctx: Context, map: MapLibreMap, style: Style, zoom: D
         lc.renderMode = RenderMode.GPS
         lc.zoomWhileTracking(zoom)
     }.onFailure { Log.e("SharkMap", "location component failed", it) }
+}
+
+private var lastMapLog = 0L
+
+/** Moves the position arrow (and the tracking camera) to [loc], once the location component is switched on. */
+private fun feed(map: MapLibreMap, loc: android.location.Location) {
+    runCatching {
+        val lc = map.locationComponent
+        if (!lc.isLocationComponentActivated || !lc.isLocationComponentEnabled) return
+        lc.forceLocationUpdate(loc)
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastMapLog > 10_000L) {
+            lastMapLog = now
+            // Rounded to about 1 km so the log never holds an exact position.
+            Log.e("SharkMap", "fix fed: %.2f,%.2f speed=%.0f km/h bearing=%.0f".format(loc.latitude, loc.longitude, loc.speed * 3.6f, loc.bearing))
+        }
+    }.onFailure { Log.e("SharkMap", "feed failed", it) }
 }

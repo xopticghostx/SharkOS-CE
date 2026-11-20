@@ -114,20 +114,25 @@ fun SettingsScreen(onNavigate: (Screen) -> Unit, initialTab: Int = 0) {
     }
 }
 
-/** Controls: what you change while driving (quick toggles) and the driver-assist switches the car forgets. */
+/** Controls: quick toggles, driver-assist settings BYD resets, and verified BYD vehicle settings. */
 @Composable
 fun ControlsScreen(onNavigate: (Screen) -> Unit, initialTab: Int = 0) {
-    var tab by remember(initialTab) { mutableStateOf(initialTab.coerceIn(0, 1)) }
+    var tab by remember(initialTab) { mutableStateOf(initialTab.coerceIn(0, 2)) }
     Column(Modifier.fillMaxSize().padding(end = 24.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         com.sharkhome.launcher.ui.components.NavTabStrip(
             listOf(
                 com.sharkhome.launcher.ui.components.StripTab("Quick controls", Ic.Sliders),
                 com.sharkhome.launcher.ui.components.StripTab("Startup controls", Ic.SteeringWheel),
+                com.sharkhome.launcher.ui.components.StripTab("BYD settings", Ic.Gear),
             ),
             tab, { tab = it },
         )
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            if (tab == 0) QuickSettingsScreen(onNavigate) else AdvancedSettingsScreen(onNavigate, part = 0)
+            when (tab) {
+                0 -> QuickSettingsScreen(onNavigate)
+                1 -> AdvancedSettingsScreen(onNavigate, part = 0)
+                else -> BydSettingsScreen()
+            }
         }
     }
 }
@@ -164,6 +169,8 @@ private fun VehicleTab() {
             Column {
                 Hairline(color = C.LineStrong)
                 DetailRow("Odometer", car.n("vehicle.odometerKm").fmt(0, " km"))
+                DetailRow("Trip A", car.n("trip.aKm").fmt(1, " km"))
+                DetailRow("Trip B", car.n("trip.bKm").fmt(1, " km"))
                 DetailRow("Lifetime EV / HEV Split", "${car.n("vehicle.evMileage").fmt(0, " km")} EV · ${car.n("vehicle.hevMileage").fmt(0, " km")} HEV")
                 DetailRow("12V Auxiliary Battery", car.n("battery.voltage").fmt(1, " V"))
                 DetailRow("HV Battery Health", car.n("vehicle.batteryHealth").fmt(0, "%"))
@@ -316,7 +323,7 @@ private fun DisplayTab() {
                 Modifier.width(360.dp),
             )
         }
-        SettingRow("Theme", "Auto follows the car's day/night mode, or the time of day") {
+        SettingRow("Theme", "Auto follows the car's own light or dark theme") {
             val modes = listOf("auto", "light", "dark", "shark")
             Segmented(listOf("Auto", "Light", "Dark", "Shark blue"), modes.indexOf(p.themeMode).coerceAtLeast(0), { p.themeMode = modes[it] }, Modifier.width(620.dp))
         }

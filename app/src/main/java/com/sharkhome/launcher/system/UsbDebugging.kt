@@ -70,6 +70,35 @@ object UsbDebugging {
         return EnableResult(enabled = nowOn, openedFallback = opened, message = msg)
     }
 
+    private var watching = false
+
+    /**
+     * Keeps debugging on while [keepOn] says so. BYD's OTA app (com.byd.ota) writes adb_enabled = 0 every time it
+     * starts ("UsbUpdateLogger: disableAdb", seen 20 Nov 2026 when it crashed and restarted mid-scrcpy), which drops
+     * the PC's adb and scrcpy. Needs WRITE_SECURE_SETTINGS (granted by the installer); without it this does nothing.
+     */
+    fun startWatchdog(ctx: Context, keepOn: () -> Boolean) {
+        if (watching) return
+        watching = true
+        val app = ctx.applicationContext
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        val restore = Runnable {
+            if (keepOn() && !isEnabled(app)) {
+                val ok = runCatching { Settings.Global.putInt(app.contentResolver, Settings.Global.ADB_ENABLED, 1) }.getOrDefault(false)
+                android.util.Log.e("SharkAdb", "debugging was turned off; switched back on: ${ok && isEnabled(app)}")
+            }
+        }
+        val observer = object : android.database.ContentObserver(handler) {
+            override fun onChange(selfChange: Boolean) {
+                // Wait 1.5 s so a quick off/on toggle settles first. Turning it off on purpose needs this switch off.
+                handler.removeCallbacks(restore)
+                if (keepOn() && !isEnabled(app)) handler.postDelayed(restore, 1500)
+            }
+        }
+        runCatching { app.contentResolver.registerContentObserver(Settings.Global.getUriFor(Settings.Global.ADB_ENABLED), false, observer) }
+        handler.post(restore)
+    }
+
     /** Opens BYD's AdbActivity (`byd_pad://secretcode:9521/adbactivity`), or Android Developer Options as fallback. */
     fun openBydAdbScreen(ctx: Context): Boolean {
         val candidates = listOf(

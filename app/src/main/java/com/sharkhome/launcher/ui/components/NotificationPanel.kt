@@ -142,12 +142,18 @@ fun NotificationPanel(open: Boolean, car: Car, onClose: () -> Unit) {
 
                 // System shortcuts
                 val tilesPerRow = 6
+                val portrait = androidx.compose.ui.platform.LocalConfiguration.current.orientation ==
+                    android.content.res.Configuration.ORIENTATION_PORTRAIT
                 val system = listOf<Triple<String, Ic, Pair<Boolean, () -> Unit>>>(
                     Triple("Wi-Fi", Ic.Wifi, st.wifi to { openBydConnection(ctx) }),
                     Triple("Bluetooth", Ic.Bluetooth, st.btOn to { openBydConnection(ctx) }),
                     Triple("Dark mode", Ic.Display, C.P.dark to { c.prefs.themeMode = if (C.P.dark) "light" else "dark" }),
                     Triple("Mute", Ic.Volume, muted to {
                         runCatching { audio.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_TOGGLE_MUTE, 0) }
+                    }),
+                    // Full screen hides BYD's dock, whose first button is the only other way to turn the screen (GitHub #5).
+                    Triple("Rotate screen", Ic.ScreenRotate, portrait to {
+                        car.setLabel("display.screenRotation", if (portrait) "Landscape" else "Portrait")
                     }),
                     Triple("Mobile data", Ic.Cast, st.sim to { openBydConnection(ctx) }),
                     Triple("Settings", Ic.Gear, false to { openSettings(ctx, Settings.ACTION_SETTINGS) }),

@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.database.ContentObserver
 import android.media.AudioManager
+import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import android.os.Handler
 import android.os.Looper
@@ -16,6 +17,13 @@ import com.sharkhome.launcher.settings.Prefs
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+
+/**
+ * BYD's own sound settings (Settings › System › Audio on the Shark 6 with Dynaudio), read from the copy the car keeps in
+ * Settings.Global. Null = key not found. Codes verified on the car 20 Nov 2026 by choosing each option in BYD's picker.
+ */
+/** Android BassBoost effect on the output mix. strength is 0..1000. */
+data class BassState(val available: Boolean = false, val enabled: Boolean = false, val strength: Int = 0, val error: String? = null)
 
 data class EqBand(val index: Int, val centerHz: Int, val level: Int)
 
@@ -30,7 +38,19 @@ data class EqState(
     val currentPreset: Int = -1,
 )
 
-/** Volume (car volume group / music stream) and the system-wide equaliser on the head unit's output mix. */
+data class BydSound(val preset: Int?, val focus: Int?) {
+    val presetName: String? get() = preset?.let { PRESETS.getOrElse(it) { "Code $it" } }
+    val focusName: String? get() = focus?.let { FOCUS.getOrElse(it) { "Code $it" } }
+
+    companion object {
+        /** android.car.EQUALIZER/PRESET */
+        val PRESETS = listOf("Custom", "Acoustic", "Dynamic", "Soft", "Speech")
+        /** android.car.AUDIO_CONTROL/dyna_sound_field_focus */
+        val FOCUS = listOf("Whole", "Driver", "Front Passenger", "Rear", "Surround", "Custom")
+    }
+}
+
+/** Volume (car volume group / music stream) and BYD's Dynaudio sound settings (read only). */
 class AudioRepository(
     private val ctx: Context,
     private val prefs: Prefs,
@@ -44,25 +64,60 @@ class AudioRepository(
     companion object {
         private const val TAG = "SharkAudio"
         private const val VOLUME_GROUP_KEY = "android.car.VOLUME_GROUP/0"
+        private const val PRESET_KEY = "android.car.EQUALIZER/PRESET"
+        private const val FOCUS_KEY = "android.car.AUDIO_CONTROL/dyna_sound_field_focus"
+        const val BYD_SETTINGS_PKG = "com.byd.carsettings"
     }
 
     private val am = ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private var carAudioManager: Any? = null
+    private var car: Any? = null
 
     val maxVolume: Int get() = readMaxVolume()
 
     private val _volume = MutableStateFlow(0)
     val volume: StateFlow<Int> = _volume
 
+    /*
+     * Why there is no equaliser in the app (checked on the car 20 Nov 2026):
+     * - Android's audiofx Equalizer on session 0 attached to the REMOTE_SUBMIX output (screen-capture audio), not to the
+     *   bus0_media_out bus that feeds the Dynaudio amplifier, so it never changed what the speakers play.
+     * - BYD's real EQ is android.car.media.CarEqualizer (car service "enhanced_audio"), which needs
+     *   android.car.permission.CAR_CONTROL_ENHANCED_AUDIO (signature|privileged). The app and the adb shell are refused.
+     * - Writing android.car.EQUALIZER/PRESET in Settings.Global only changes BYD's saved copy: BYD's picker kept showing
+     *   the old preset. So the app shows BYD's choice and opens BYD Settings to change it.
+     */
+    private val _sound = MutableStateFlow(BydSound(null, null))
+    val sound: StateFlow<BydSound> = _sound
+
+    // Two separate things live here:
+    // 1. Android's own audiofx Equalizer on the output mix (_eq below). This is the testable EQ with bands + presets
+    //    (bass boost etc.). A car-mixer dump showed it on the REMOTE_SUBMIX output while scrcpy was capturing, so whether
+    //    it reaches the Dynaudio speakers is being verified by ear — keep it until that's settled.
+    // 2. BYD's own Dynaudio preset/focus (_sound above), read only: the car refuses every app the permission to set it
+    //    (checkCallingOrSelfPermission(CAR_CONTROL_ENHANCED_AUDIO) in com.ts.car.enhancedaudio.CarEnhancedAudioCore,
+    //    signature|privileged), so the app shows it and opens BYD Settings to change it.
     private val _eq = MutableStateFlow(EqState(available = false))
     val eq: StateFlow<EqState> = _eq
 
     private var equalizer: Equalizer? = null
 
+    private val _bass = MutableStateFlow(BassState())
+    val bass: StateFlow<BassState> = _bass
+    private var bassBoost: BassBoost? = null
+
     init {
         initCarAudio()
         setupObservers()
         refresh()
+        refreshSound()
+    }
+
+    private fun readGlobalInt(key: String): Int? =
+        runCatching { Settings.Global.getString(ctx.contentResolver, key)?.trim()?.toIntOrNull() }.getOrNull()
+
+    fun refreshSound() {
+        _sound.value = BydSound(readGlobalInt(PRESET_KEY), readGlobalInt(FOCUS_KEY))
     }
 
     private fun initCarAudio() {
@@ -71,6 +126,7 @@ class AudioRepository(
             val carClass = Class.forName("android.car.Car")
             val createCar = carClass.getMethod("createCar", Context::class.java)
             val car = createCar.invoke(null, ctx)
+            this.car = car
             val getCarManager = carClass.getMethod("getCarManager", String::class.java)
             carAudioManager = getCarManager.invoke(car, "audio")
         } catch (t: Throwable) {
@@ -124,6 +180,16 @@ class AudioRepository(
             Log.w(TAG, "Failed to register ContentObserver: ${t.message}")
         }
         try {
+            val obs = object : ContentObserver(handler) {
+                override fun onChange(selfChange: Boolean) = refreshSound()
+            }
+            for (k in listOf(PRESET_KEY, FOCUS_KEY)) {
+                ctx.contentResolver.registerContentObserver(Settings.Global.getUriFor(k), false, obs)
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "Failed to watch BYD sound settings: ${t.message}")
+        }
+        try {
             val filter = IntentFilter("android.media.VOLUME_CHANGED_ACTION")
             ctx.registerReceiver(object : BroadcastReceiver() {
                 override fun onReceive(context: Context?, intent: Intent?) {
@@ -140,21 +206,6 @@ class AudioRepository(
         // reading here would make the next tap count from the wrong number.
         if (volWorker) return
         _volume.value = readCurrentVolume()
-    }
-
-    /** Runs an equaliser call; if the effect has died (audio service restart), drops it so the next use rebuilds it. */
-    private inline fun eqSafe(block: (Equalizer) -> Unit): Boolean {
-        val e = equalizer ?: return false
-        return try {
-            block(e)
-            true
-        } catch (t: Throwable) {
-            Log.e(TAG, "equaliser call failed, will re-create", t)
-            runCatching { e.release() }
-            equalizer = null
-            _eq.value = EqState(available = false, error = t.message ?: t.javaClass.simpleName)
-            false
-        }
     }
 
     /** Set by the app container: the head unit's own adb, used to press the volume keys. */
@@ -238,7 +289,25 @@ class AudioRepository(
         _volume.value = target
     }
 
+    // ---- Android output-mix equaliser (bands + presets). Testable; may or may not reach the Dynaudio speakers. ----
+
+    /** Runs an equaliser call; if the effect has died (audio service restart), drops it so the next use rebuilds it. */
+    private inline fun eqSafe(block: (Equalizer) -> Unit): Boolean {
+        val e = equalizer ?: return false
+        return try {
+            block(e)
+            true
+        } catch (t: Throwable) {
+            Log.e(TAG, "equaliser call failed, will re-create", t)
+            runCatching { e.release() }
+            equalizer = null
+            _eq.value = EqState(available = false, error = t.message ?: t.javaClass.simpleName)
+            false
+        }
+    }
+
     fun initEq() {
+        initBass()
         if (equalizer != null) return
         try {
             // Session 0 = the global output mix. Not every head unit allows it.
@@ -293,36 +362,58 @@ class AudioRepository(
         eqSafe { e ->
             if (index >= 0 && index < e.numberOfPresets.toInt()) {
                 e.usePreset(index.toShort())
+                if (!e.enabled) {
+                    e.setEnabled(true)
+                    prefs.eqEnabled = true
+                }
                 saveLevels()
                 publish(index)
             }
         }
     }
 
-    /** Saves the current equaliser (on/off + every band) as the "Sound EQ memory" snapshot. */
-    fun saveSnapshot(): Boolean = eqSafe { e ->
-        val levels = (0 until e.numberOfBands.toInt()).map { e.getBandLevel(it.toShort()).toInt() }
-        prefs.eqSnapshot = (if (e.enabled) "1" else "0") + ";" + levels.joinToString(",")
+    private fun initBass() {
+        if (bassBoost != null) return
+        try {
+            val b = BassBoost(0, 0)
+            bassBoost = b
+            if (b.strengthSupported) b.setStrength(prefs.bassStrength.toShort())
+            b.setEnabled(prefs.bassEnabled)
+            publishBass()
+        } catch (t: Throwable) {
+            _bass.value = BassState(false, error = t.message ?: t.javaClass.simpleName)
+        }
     }
 
-    /** Puts the saved snapshot back. Returns false if there is none or the equaliser isn't available. */
-    fun restoreSnapshot(): Boolean {
-        initEq()
-        val parts = prefs.eqSnapshot?.split(';') ?: return false
-        if (parts.size != 2) return false
-        val levels = parts[1].split(',').mapNotNull { it.trim().toIntOrNull() }
-        var applied = false
-        val ok = eqSafe { e ->
-            if (levels.size == e.numberOfBands.toInt()) {
-                levels.forEachIndexed { i, lvl -> e.setBandLevel(i.toShort(), lvl.toShort()) }
-                e.setEnabled(parts[0] == "1")
-                prefs.eqEnabled = parts[0] == "1"
-                saveLevels()
-                publish(-1)
-                applied = true
-            }
+    private fun publishBass() {
+        val b = bassBoost ?: return
+        _bass.value = BassState(true, b.enabled, if (b.strengthSupported) b.roundedStrength.toInt() else prefs.bassStrength)
+    }
+
+    private inline fun bassSafe(block: (BassBoost) -> Unit) {
+        if (bassBoost == null) initBass()
+        val b = bassBoost ?: return
+        try {
+            block(b)
+            publishBass()
+        } catch (t: Throwable) {
+            Log.e(TAG, "bass boost call failed, will re-create", t)
+            runCatching { b.release() }
+            bassBoost = null
+            _bass.value = BassState(false, error = t.message ?: t.javaClass.simpleName)
         }
-        return ok && applied
+    }
+
+    fun setBassEnabled(on: Boolean) = bassSafe { b -> b.setEnabled(on); prefs.bassEnabled = on }
+
+    /** strength 0..1000; any strength above 0 also switches the effect on. */
+    fun setBassStrength(strength: Int) = bassSafe { b ->
+        val s = strength.coerceIn(0, 1000)
+        if (b.strengthSupported) b.setStrength(s.toShort())
+        prefs.bassStrength = s
+        val on = s > 0
+        b.setEnabled(on)
+        prefs.bassEnabled = on
     }
 
     private fun saveLevels() {

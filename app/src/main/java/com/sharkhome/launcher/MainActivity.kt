@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -76,15 +77,24 @@ class MainActivity : ComponentActivity() {
     /** Bumped when the Home button is pressed while we're already in front. */
     private val homePresses = MutableStateFlow(0)
 
+    /** Bumped when launched with `--es open "<route>"` (e.g. via ADB testing). */
+    private val openRoute = MutableStateFlow<Pair<Int, String>?>(null)
+
+    private fun handleRouteIntent(intent: Intent?) {
+        val route = intent?.getStringExtra(EXTRA_OPEN)?.trim()?.takeIf { it.isNotEmpty() } ?: return
+        openRoute.value = ((openRoute.value?.first ?: 0) + 1) to route
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         applyImmersiveMode()
+        handleRouteIntent(intent)
         val c = container
         c.vehicle.uiVisible = true // before start(), so the first seconds poll at full speed
         c.vehicle.start()
         c.audio.initEq()
         c.media.start()
-        setContent { App(homePresses, ::applyImmersiveMode) }
+        setContent { App(homePresses, openRoute, ::applyImmersiveMode) }
     }
 
     override fun onResume() {
@@ -144,11 +154,20 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         if (intent.hasCategory(Intent.CATEGORY_HOME)) homePresses.value = homePresses.value + 1
+        handleRouteIntent(intent)
+    }
+
+    companion object {
+        const val EXTRA_OPEN = "open"
     }
 }
 
 @Composable
-private fun App(homePresses: MutableStateFlow<Int>, onFullScreenChanged: (Boolean) -> Unit) {
+private fun App(
+    homePresses: MutableStateFlow<Int>,
+    openRoute: MutableStateFlow<Pair<Int, String>?>,
+    onFullScreenChanged: (Boolean) -> Unit,
+) {
     val c = LocalContext.current.container
     val tick = prefsTick()
     val defaultScreen = Screen.DASHBOARD
@@ -158,7 +177,9 @@ private fun App(homePresses: MutableStateFlow<Int>, onFullScreenChanged: (Boolea
     var controlsTab by rememberSaveable { mutableStateOf(0) }
     var driveTab by rememberSaveable { mutableStateOf(0) }
     var settingsTab by rememberSaveable { mutableStateOf(0) }
+    var routeNonce by remember { mutableStateOf(0) }
     val home by homePresses.collectAsState()
+    val routeEvent by openRoute.collectAsState()
 
     LaunchedEffect(c.prefs.fullScreenMode) {
         onFullScreenChanged(c.prefs.fullScreenMode)
@@ -170,6 +191,61 @@ private fun App(homePresses: MutableStateFlow<Int>, onFullScreenChanged: (Boolea
             com.sharkhome.launcher.ui.screens.HomeEdit.editing.value = false
             screen = defaultScreen
         }
+    }
+
+    LaunchedEffect(routeEvent) {
+        val route = routeEvent?.second?.lowercase() ?: return@LaunchedEffect
+        drawerOpen = false
+        panelOpen = false
+        com.sharkhome.launcher.ui.screens.HomeEdit.editing.value = false
+        val parts = route.split(':', limit = 2)
+        val head = parts[0]
+        val arg = parts.getOrNull(1)
+        when (head) {
+            "home", "dashboard" -> screen = Screen.DASHBOARD
+            "climate", "ac" -> screen = Screen.CLIMATE
+            "controls", "quick" -> {
+                controlsTab = when (arg) {
+                    "1", "startup", "advanced" -> 1
+                    "2", "byd", "settings" -> 2
+                    else -> arg?.toIntOrNull()?.coerceIn(0, 2) ?: 0
+                }
+                screen = Screen.QUICK_SETTINGS
+            }
+            "advanced" -> { controlsTab = 1; screen = Screen.QUICK_SETTINGS }
+            "byd" -> { controlsTab = 2; screen = Screen.QUICK_SETTINGS }
+            "drive", "offroad" -> {
+                driveTab = when (arg) {
+                    "1", "towing", "tow" -> 1
+                    "2", "gauges", "gauge" -> 2
+                    else -> arg?.toIntOrNull()?.coerceIn(0, 2) ?: 0
+                }
+                screen = if (driveTab == 2) Screen.GAUGES else Screen.OFFROAD
+            }
+            "towing", "tow" -> { driveTab = 1; screen = Screen.OFFROAD }
+            "gauges" -> { driveTab = 2; screen = Screen.GAUGES }
+            "apps" -> screen = Screen.APPS
+            "car", "vehicle" -> screen = Screen.VEHICLE
+            "dashcam" -> screen = Screen.DASHCAM
+            "explorer" -> screen = Screen.EXPLORER
+            "test" -> { settingsTab = 5; screen = Screen.SETTINGS }
+            "settings" -> {
+                settingsTab = when (arg) {
+                    "0", "display" -> 0
+                    "1", "permissions", "adb" -> 1
+                    "2", "install" -> 2
+                    "3", "startup" -> 3
+                    "4", "diagnostics", "diag" -> 4
+                    "5", "test" -> 5
+                    "6", "updates", "about" -> 6
+                    else -> arg?.toIntOrNull()?.coerceIn(0, 6) ?: 0
+                }
+                screen = Screen.SETTINGS
+            }
+            else -> return@LaunchedEffect
+        }
+        routeNonce++
+        android.util.Log.e("SharkCar", "ADB_TEST open route=$route -> screen=$screen tabs=($controlsTab,$driveTab,$settingsTab)")
     }
     BackHandler(enabled = screen != defaultScreen || drawerOpen || panelOpen) {
         if (panelOpen) panelOpen = false else if (drawerOpen) drawerOpen = false else screen = defaultScreen
@@ -191,12 +267,13 @@ private fun App(homePresses: MutableStateFlow<Int>, onFullScreenChanged: (Boolea
     val dark = when (c.prefs.themeMode) {
         "dark", "shark" -> true
         "light" -> false
-        // Auto: the car's day/night mode when it answers 1 or 2 (it reads -1 on this firmware), else Android's own UI mode
-        // (which BYD's system sets), else the time of day.
-        else -> car.label("display.dayNight")?.let { it == "night" } ?: when (uiNight) {
+        // Auto: follow BYD's own light/dark theme, which BYD's system sets as Android's UI night mode. The instrument
+        // cluster's day/night signal is only a fallback: it read "day" (1) while BYD was in dark mode (20 Nov 2026,
+        // GitHub #8), so it must not override the theme the driver picked. Last resort: the time of day.
+        else -> when (uiNight) {
             android.content.res.Configuration.UI_MODE_NIGHT_YES -> true
             android.content.res.Configuration.UI_MODE_NIGHT_NO -> false
-            else -> hour >= 19 || hour < 6
+            else -> car.label("display.dayNight")?.let { it == "night" } ?: (hour >= 19 || hour < 6)
         }
     }
 
@@ -227,12 +304,12 @@ private fun App(homePresses: MutableStateFlow<Int>, onFullScreenChanged: (Boolea
                         when (screen) {
                             Screen.DASHBOARD -> DashboardScreen(go)
                             Screen.CLIMATE -> ClimateScreen(go)
-                            Screen.QUICK_SETTINGS, Screen.ADVANCED_SETTINGS -> ControlsScreen(go, controlsTab)
+                            Screen.QUICK_SETTINGS, Screen.ADVANCED_SETTINGS -> key(routeNonce) { ControlsScreen(go, controlsTab) }
                             Screen.APPS -> AppsScreen()
                             Screen.VEHICLE -> CarScreen()
                             Screen.DASHCAM -> DashCamScreen()
-                            Screen.SETTINGS, Screen.UTILITIES, Screen.INSTALL -> SettingsScreen(go, settingsTab)
-                            Screen.OFFROAD, Screen.GAUGES -> OffRoadScreen(initialTab = driveTab)
+                            Screen.SETTINGS, Screen.UTILITIES, Screen.INSTALL -> key(routeNonce) { SettingsScreen(go, settingsTab) }
+                            Screen.OFFROAD, Screen.GAUGES -> key(routeNonce) { OffRoadScreen(initialTab = driveTab) }
                             Screen.EXPLORER -> ExplorerScreen()
                         }
                     }

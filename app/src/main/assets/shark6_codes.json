@@ -459,7 +459,7 @@
       }
     },
     "chassis.stability": {
-      "_note": "Stability control (ESC). SAFETY SYSTEM. Read: assist.getElecCarBodyStablySysState 0 = ON, 1 = OFF. Write (owner-authorised 14 Nov 2026, Drive tab only): assist.setElecCarBodyStablySysState(1) = turn OFF, (2) = turn ON; this is exactly what BYD's own quick-settings EspOff tile sends (found in BydCarSystemUI). Only ever written from the Drive tab control, with a speed limit and a two-step confirm; never by Startup Memory or any automation.",
+      "_note": "Stability control (ESC). SAFETY SYSTEM. Read: assist.getElecCarBodyStablySysState 0 = ON, 1 = OFF. Write (owner-authorised 14 Nov 2026, Drive tab only): assist.setElecCarBodyStablySysState(1) = turn OFF, (2) = turn ON; this is exactly what BYD's own quick-settings EspOff tile sends (found in BydCarSystemUI). Written from the Drive tab (one tap) or by Startup Memory when the user ticks Remember on it. No speed limit or blocklist (owner's decision, GitHub #7, 20 Nov 2026).",
       "read": [
         {
           "caradapter": "assist",
@@ -1268,7 +1268,7 @@
       }
     },
     "display.screenRotation": {
-      "_note": "Center screen rotation (setting.getScreenAngle / setScreenRotation). Encoding unverified on car.",
+      "_note": "Centre screen rotation (the screen physically turns). Write = what BYD's SystemUI dock sends: BYDAutoSettingDevice.setScreenRotation(1 = landscape, 2 = portrait), read from its auto-rotate code (sends 2 when landscape and asked for portrait). VERIFIED on the car 20 Nov 2026 from the Quick panel Rotate screen tile (GitHub #5): 2 turned the screen to portrait (display 1080x1920), 1 back to landscape. The read getScreenAngle stays 0 in both orientations, so it cannot confirm the write; the app uses Android's own orientation instead.",
       "read": [
         {
           "bydauto": "setting.BYDAutoSettingDevice",
@@ -1287,7 +1287,7 @@
       ],
       "write": [
         {
-          "caradapter": "setting",
+          "bydauto": "setting.BYDAutoSettingDevice",
           "methods": [
             "setScreenRotation"
           ]
@@ -1551,6 +1551,7 @@
       }
     },
     "climate.recirc": {
+      "_note": "Verified on the car 20 Nov 2026 (GitHub #6) by pressing BYD's own recirculate button and reading its W/f1 log: BYD sends BYDAutoAcDevice.setAcCycleMode(0, 0) for recirculate and (0, 1) for fresh air. The caradapter read getAcCycleMode reports 1 = recirculate, 2 = fresh. The caradapter setter only exists with two arguments, so the old one-argument write never ran. The state is independent of the climate being on.",
       "read": [
         {
           "caradapter": "hvac",
@@ -1559,19 +1560,36 @@
           ]
         }
       ],
-      "write": [
-        {
-          "caradapter": "hvac",
-          "methods": [
-            "setAcCycleMode"
-          ]
-        }
-      ],
       "labels": {
         "on": 1,
         "off": 2
       },
-      "_note": "Read 2 with the climate off, so off = 2 (BYD's usual 1 = on, 2 = off)."
+      "writeLabels": {
+        "on": [
+          {
+            "bydauto": "ac.BYDAutoAcDevice",
+            "methods": [
+              "setAcCycleMode"
+            ],
+            "args": [
+              0,
+              0
+            ]
+          }
+        ],
+        "off": [
+          {
+            "bydauto": "ac.BYDAutoAcDevice",
+            "methods": [
+              "setAcCycleMode"
+            ],
+            "args": [
+              0,
+              1
+            ]
+          }
+        ]
+      }
     },
     "climate.defrostFront": {
       "read": [
@@ -3231,7 +3249,7 @@
       ]
     },
     "display.dayNight": {
-      "_note": "Car's day/night mode, read 1 at 10 am but -1 at 8 pm on 16 Nov 2026 (so unreliable). The Auto theme uses it only when it reads 1 or 2, otherwise Android's UI mode, otherwise the clock. Unverified: night is assumed to be 2.",
+      "_note": "Instrument cluster day/night mode, NOT the BYD theme: read 1 at 10 am, -1 at 8 pm (16 Nov 2026) and the app showed light while BYD was in dark mode at 6:17 pm (20 Nov, GitHub #8). The Auto theme now follows Android night mode (set by BYD's theme) and uses this only as a fallback. Unverified: night is assumed to be 2.",
       "read": [
         {
           "bydauto": "instrument.BYDAutoInstrumentDevice",
@@ -3436,7 +3454,7 @@
       ]
     },
     "trip.aKm": {
-      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY. Trip A odometer, km. Read 6653.6 (5 Nov) then 6698.0 (7 Nov): +44.4, exactly the odometer change. Car Explorer exports.",
+      "_note": "VERIFIED READ-ONLY ON CAR (20 Nov 2026): Trip A odometer, km. Read 6653.6 (5 Nov), 6698.0 (7 Nov), 6975.4 (20 Nov, exact +277.4 km odometer delta).",
       "read": [
         {
           "caradapter": "general",
@@ -3447,7 +3465,7 @@
       ]
     },
     "trip.bKm": {
-      "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY. Trip B odometer, km. Read 7462.4 then 7506.8 (+44.4, same as odometer).",
+      "_note": "VERIFIED READ-ONLY ON CAR (20 Nov 2026): Trip B odometer, km. Read 7462.4 (5 Nov), 7506.8 (7 Nov), 7784.2 (20 Nov, exact +277.4 km odometer delta).",
       "read": [
         {
           "caradapter": "general",
@@ -3740,6 +3758,435 @@
           ]
         }
       ]
+    },
+    "energy.saveMemory": {
+      "_note": "VERIFIED ON CAR (20 Nov 2026): SAVE mode memory (BYDAutoEnergyDevice.getMemoryElectricState / setMemoryElectricState). 1 = on, 2 = off (0 ignored). Confirmed 1->2->1.",
+      "confirmMs": 1800,
+      "read": [
+        {
+          "bydauto": "energy.BYDAutoEnergyDevice",
+          "methods": [
+            "getMemoryElectricState"
+          ]
+        },
+        {
+          "caradapter": "body",
+          "methods": [
+            "getMemoryElectricState"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "bydauto": "energy.BYDAutoEnergyDevice",
+          "methods": [
+            "setMemoryElectricState"
+          ]
+        },
+        {
+          "caradapter": "body",
+          "methods": [
+            "setMemoryElectricState"
+          ]
+        }
+      ],
+      "labels": {
+        "on": 1,
+        "off": [
+          2,
+          0
+        ]
+      }
+    },
+    "energy.sportMemory": {
+      "_note": "VERIFIED ON CAR (20 Nov 2026): SPORT mode memory (BYDAutoEnergyDevice.getMemorySportState / setMemorySportState). 1 = on, 2 = off (0 ignored). Confirmed 1->2->1.",
+      "confirmMs": 1800,
+      "read": [
+        {
+          "bydauto": "energy.BYDAutoEnergyDevice",
+          "methods": [
+            "getMemorySportState"
+          ]
+        },
+        {
+          "caradapter": "body",
+          "methods": [
+            "getMemorySportState"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "bydauto": "energy.BYDAutoEnergyDevice",
+          "methods": [
+            "setMemorySportState"
+          ]
+        },
+        {
+          "caradapter": "body",
+          "methods": [
+            "setMemorySportState"
+          ]
+        }
+      ],
+      "labels": {
+        "on": 1,
+        "off": [
+          2,
+          0
+        ]
+      }
+    },
+    "locks.autoLock": {
+      "_note": "VERIFIED ON CAR (20 Nov 2026): Auto lock while driving (BYDAutoSettingDevice.getOverspeedLock / setOverspeedLock). 1 = on, 2 = off (0 ignored). Confirmed 1->2->1.",
+      "confirmMs": 1500,
+      "read": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "getOverspeedLock"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getOverspeedLock"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "setOverspeedLock"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "setOverspeedLock"
+          ]
+        }
+      ],
+      "labels": {
+        "on": 1,
+        "off": [
+          2,
+          0
+        ]
+      }
+    },
+    "locks.rainCloseWindows": {
+      "_note": "VERIFIED ON CAR (20 Nov 2026): Auto close windows in rain (BYDAutoSettingDevice.getRainAutoLockWindowState / setRainAutoLockWindowState). 1 = on, 2 = off (0 ignored). Confirmed 1->2->1.",
+      "confirmMs": 1500,
+      "read": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "getRainAutoLockWindowState"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getRainAutoLockWindowState"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "setRainAutoLockWindowState"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "setRainAutoLockWindowState"
+          ]
+        }
+      ],
+      "labels": {
+        "on": 1,
+        "off": [
+          2,
+          0
+        ]
+      }
+    },
+    "locks.lockCloseWindows": {
+      "_note": "VERIFIED ON CAR (20 Nov 2026): Auto close windows after locking (BYDAutoSettingDevice.getLockCarRiseWindow / setLockCarRiseWindow). 1 = on, 2 = off (0 ignored). Confirmed 1->2->1.",
+      "confirmMs": 1500,
+      "read": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "getLockCarRiseWindow"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getLockCarRiseWindow"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "setLockCarRiseWindow"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "setLockCarRiseWindow"
+          ]
+        }
+      ],
+      "labels": {
+        "on": 1,
+        "off": [
+          2,
+          0
+        ]
+      }
+    },
+    "vehicle.autoWiper": {
+      "_note": "VERIFIED ON CAR (20 Nov 2026): Auto rain wiper (BYDAutoSettingDevice.getAutoRainWiperState / setAutoRainWiperState). 1 = on, 2 = off (0 ignored). Confirmed 1->2->1.",
+      "confirmMs": 1500,
+      "read": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "getAutoRainWiperState"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getAutoRainWiperState"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "setAutoRainWiperState"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "setAutoRainWiperState"
+          ]
+        }
+      ],
+      "labels": {
+        "on": 1,
+        "off": [
+          2,
+          0
+        ]
+      }
+    },
+    "light.courtesyLight": {
+      "_note": "VERIFIED ON CAR (20 Nov 2026): Intelligent courtesy light (BYDAutoSettingDevice.getSmartWelcomeLightState / setSmartWelcomeLightState). 1 = on, 2 = off (0 ignored). Confirmed 1->2->1.",
+      "confirmMs": 1500,
+      "read": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "getSmartWelcomeLightState"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getSmartWelcomeLightState"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "setSmartWelcomeLightState"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "setSmartWelcomeLightState"
+          ]
+        }
+      ],
+      "labels": {
+        "on": 1,
+        "off": [
+          2,
+          0
+        ]
+      }
+    },
+    "hud.height": {
+      "_note": "VERIFIED ON CAR (20 Nov 2026): HUD height (BYDAutoSettingDevice.getHudHeight / setHudHeight). Raw 1..21 maps to UI -10..+10 (offset -11). Confirmed raw 1->2->1.",
+      "confirmMs": 1500,
+      "scale": 1,
+      "offset": -11,
+      "read": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "getHudHeight"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getHudHeight"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "setHudHeight"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "setHudHeight"
+          ]
+        }
+      ]
+    },
+    "hud.brightness": {
+      "_note": "VERIFIED ON CAR (20 Nov 2026): HUD brightness (BYDAutoSettingDevice.getHudBrightness / setHudBrightness). Raw 1..11 = UI 1..11. Confirmed 11->10->11.",
+      "confirmMs": 1500,
+      "scale": 1,
+      "offset": 0,
+      "read": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "getHudBrightness"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getHudBrightness"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "setHudBrightness"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "setHudBrightness"
+          ]
+        }
+      ]
+    },
+    "hud.angle": {
+      "_note": "VERIFIED ON CAR (20 Nov 2026): HUD rotation angle (BYDAutoSettingDevice.getHudRotationAngle / setHudRotationAngle). Raw 1..11 maps to UI -5..+5 deg (raw 6 = 0 deg, offset -6). Confirmed raw 6->5->6.",
+      "confirmMs": 1500,
+      "scale": 1,
+      "offset": -6,
+      "read": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "getHudRotationAngle"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getHudRotationAngle"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "bydauto": "setting.BYDAutoSettingDevice",
+          "methods": [
+            "setHudRotationAngle"
+          ]
+        },
+        {
+          "caradapter": "setting",
+          "methods": [
+            "setHudRotationAngle"
+          ]
+        }
+      ]
+    },
+    "hud.adas": {
+      "_note": "VERIFIED ON CAR (20 Nov 2026): HUD ADAS display content (caradapter.setting.getHudDisplayContentDriver / setHudDisplayContentDriver). 1 = on, 2 = off (0 ignored). Confirmed 1->2->1.",
+      "confirmMs": 1500,
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getHudDisplayContentDriver"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "setHudDisplayContentDriver"
+          ]
+        }
+      ],
+      "labels": {
+        "on": 1,
+        "off": [
+          2,
+          0
+        ]
+      }
+    },
+    "hud.navi": {
+      "_note": "VERIFIED ON CAR (20 Nov 2026): HUD Navigation display content (caradapter.setting.getHudDisplayContentNavigation / setHudDisplayContentNavigation). 1 = on, 2 = off (0 ignored). Confirmed 1->2->1.",
+      "confirmMs": 1500,
+      "read": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "getHudDisplayContentNavigation"
+          ]
+        }
+      ],
+      "write": [
+        {
+          "caradapter": "setting",
+          "methods": [
+            "setHudDisplayContentNavigation"
+          ]
+        }
+      ],
+      "labels": {
+        "on": 1,
+        "off": [
+          2,
+          0
+        ]
+      }
     }
   }
 }

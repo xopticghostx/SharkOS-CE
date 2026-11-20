@@ -131,7 +131,7 @@ Without both `_GET` and `_SET` permissions, `BYDAuto*Device` setters silently fa
 | **Temperature (Driver / Passenger)** | `caradapter.hvac.getTempratureMain()` / `getTempratureDeputy()` (`17..32` integer °C)<br>`bydauto.ac.BYDAutoAcDevice.getTemprature(int area)` (`1` = Driver, `2` = Passenger) | `caradapter.hvac.setAcTemperatureMain(int)` / `setAcTemperatureDeputy(int)` (`17..32` integer °C)<br>*(Note: BYD Shark 6 HVAC uses 1°C integer steps `17..32`, NOT `0.5°C` floats)* |
 | **Fan Speed (`0..7`)** | `caradapter.hvac.getAcWindLevel()` (`0..7`) | `caradapter.hvac.setAcWindLevel(int)` / `bydauto.ac.BYDAutoAcDevice.setAcWindLevel(0, int)` |
 | **Airflow Mode** *(verified 7 Nov)* | `bydauto.ac.BYDAutoAcDevice.getAcWindMode()` (`1` = Face, `2` = Face+Feet, `3` = Feet, `4` = Feet+Windscreen, `6` = Face+Feet+Windscreen) | `bydauto.ac.BYDAutoAcDevice.setAcWindMode(0, int)` (passes straight through to `HvacAdapterManager.setAcWindMode(device, mode)`) |
-| **Recirculate** | `caradapter.hvac.getAcCycleMode()` (`1` = On/Recirc, `2` = Off/Fresh) | `caradapter.hvac.setAcCycleMode(int)` (`1` = On, `2` = Off) |
+| **Recirculate** | `caradapter.hvac.getAcCycleMode()` (`1` = Recirc, `2` = Fresh; verified 20 Nov 2026) | `bydauto.ac.BYDAutoAcDevice.setAcCycleMode(0, mode)` (`0` = Recirc, `1` = Fresh; what BYD's climate app sends). The caradapter setter is two-arg only and uses different codes. |
 | **Max Cooling** | `caradapter.hvac.getAcMaxCoolingState()` (`1` = On, `2` = Off) | `caradapter.hvac.setAcMaxCoolingState(int)` (`1` = On, `2` = Off) |
 | **Front Demist** | `caradapter.hvac.getAcDefrostStateFront()` (`1` = Off, `2` = On) | `caradapter.hvac.setAcDefrostStateFront(int)` (`1` = Off, `2` = On) |
 | **Rear Demist** *(verified 7 Nov)* | `bydauto.ac.BYDAutoAcDevice.getAcDefrostState(2)` (`1` = On, `0` = Off). Raw `caradapter.hvac.getElectricDefrostState()` reads `0` when off. | `bydauto.ac.BYDAutoAcDevice.setAcDefrostState(device, 2, 1/0)` (area `1` = front, `2` = rear). The wrapper maps `1`→`2`, `0`→`1` and calls `caradapter.hvac.setElectricDefrostState(int)`, so the raw code is `2` = On, `1` = Off. |
@@ -196,7 +196,7 @@ Without both `_GET` and `_SET` permissions, `BYDAuto*Device` setters silently fa
 
 #### 3. Body, Windows, Mirrors, Locks & Lighting (`caradapter.body`, `caradapter.setting`, `caradapter.cabin`)
 - **Screen Rotation**:
-  - Write: `caradapter.setting.setScreenRotation(int)`
+  - Write: `bydauto.setting.BYDAutoSettingDevice.setScreenRotation(int)`: `1` = landscape, `2` = portrait (verified 20 Nov 2026, same call as BYD's dock). `getScreenAngle` reads 0 in both orientations.
 - **Exterior Mirrors Auto-Fold**:
   - Read: `caradapter.body.getAutoExternalRearMirrorFoldedState()` (`2`), `caradapter.setting.getAutoExternalRearMirrorFollowUpSwitch()` (`1`)
   - Write: `caradapter.cabin.setAutoExternalRearMirrorFoldState(int)`
@@ -248,6 +248,31 @@ On the BYD Shark 6 (DiLink 5.0), ThunderSoft's Android Auto (`com.ts.androidauto
 ### Power / standby (8 Nov, from BydCarPowerService)
 
 - At every standby `CarPowerOnStandbyState.setOtherState` calls `CarPowerBinder.forceStopThirdApp()`: every non-system, non-stopped app is force-stopped except `FORCE_STOP_WHITELIST` = `tunein.player`, `com.byd.tunein`. Force-stopped apps get no broadcasts (incl. boot / screen-on) until started explicitly.
+
+---
+
+### Newly Verified Read/Write BYD Settings (20 Nov 2026, live read-back confirmed)
+
+All 12 signals below were verified live on the car (`192.168.50.159:5555`, ACC off, parked) with `confirmed=true` in both directions and restored (proof: `.claude/proof/0.6.774/readback-byd-settings.txt`):
+- **Energy / Mode Memory** (`bydauto.energy.BYDAutoEnergyDevice`, `1` = On, `2` = Off; `0` ignored):
+  - `energy.saveMemory`: `getMemoryElectricState()` / `setMemoryElectricState(int)`
+  - `energy.sportMemory`: `getMemorySportState()` / `setMemorySportState(int)`
+  - *(Note: `caradapter.body.setIntelligentOrCoerceKeepBattery` and `BYDAutoChargingDevice.setChargePlanState` did NOT confirm while parked.)*
+- **Locks, Windows, Wipers & Lights** (`bydauto.setting.BYDAutoSettingDevice`, `1` = On, `2` = Off; `0` ignored):
+  - `locks.autoLock`: `getOverspeedLock()` / `setOverspeedLock(int)`
+  - `locks.rainCloseWindows`: `getRainAutoLockWindowState()` / `setRainAutoLockWindowState(int)`
+  - `locks.lockCloseWindows`: `getLockCarRiseWindow()` / `setLockCarRiseWindow(int)`
+  - `vehicle.autoWiper`: `getAutoRainWiperState()` / `setAutoRainWiperState(int)`
+  - `light.courtesyLight`: `getSmartWelcomeLightState()` / `setSmartWelcomeLightState(int)`
+- **Head-Up Display (HUD)**:
+  - `hud.height`: `BYDAutoSettingDevice.getHudHeight()` / `setHudHeight(int)` — raw `1..21` maps to UI `-10..+10` (offset `-11`).
+  - `hud.brightness`: `BYDAutoSettingDevice.getHudBrightness()` / `setHudBrightness(int)` — raw `1..11` = UI `1..11`.
+  - `hud.angle`: `BYDAutoSettingDevice.getHudRotationAngle()` / `setHudRotationAngle(int)` — raw `1..11` maps to UI `-5°..+5°` (raw `6` = `0°`, offset `-6`).
+  - `hud.adas`: `caradapter.setting.getHudDisplayContentDriver()` / `setHudDisplayContentDriver(int)` — `1` = On, `2` = Off.
+  - `hud.navi`: `caradapter.setting.getHudDisplayContentNavigation()` / `setHudDisplayContentNavigation(int)` — `1` = On, `2` = Off.
+- **Trip Odometers (read-only verified)**:
+  - `trip.aKm`: `caradapter.general.getMileageNumberOne()` (`6975.4 km` on 20 Nov 2026)
+  - `trip.bKm`: `caradapter.general.getMileageNumberTwo()` (`7784.2 km` on 20 Nov 2026)
 - Display on/off events: bind `com.ts.appservice.power/.CarPowerService` (action `com.ts.intent.action.ts.carpower`), `ICarPowerBinder` transaction `1` = register listener (interface token + strong binder). Listener `com.ts.lib.power.ICarPowerEventListener` gets transaction `4` with ints (type, panel, value); type `2` + panel `1` = main display, value `1` = on, `2` = off.
 - Broadcast `com.byd.autoservice.ACTION_POWER` with boolean extra `power_mode` (true = on) is also sent on wake.
 - SharkOS-CE's `wakehelper` module (package `tunein.player`) uses this to restart SharkOS-CE after standby.

@@ -166,7 +166,7 @@ val WIDGET_TYPES: List<WidgetType> by lazy { listOf(
         options = opts("buttons" to "Wheel / Sync / Auto buttons", "temps" to "Temperatures", "fan" to "Fan speed",
             "tiles" to "A/C, recirculate & demist", "seats" to "Seat heat & vent", "presets" to "Presets")),
     WidgetType("media", "Media", "Now playing, volume, source and equaliser.", 4, 5, 3, 2,
-        options = opts("controls" to "Track & controls", "volume" to "Volume", "source" to "Source", "eq" to "Equaliser")),
+        options = opts("controls" to "Track & controls", "volume" to "Volume", "source" to "Source", "eq" to "Sound (Dynaudio)")),
     WidgetType("map", "Map", "Live map, or projects Android Auto maps (Google Maps / Waze) when active.", 4, 3, 2, 2,
         options = opts("speedo" to "Waze speedometer", "search" to "Navigate bar", "places" to "Home & Work")),
     WidgetType("shortcuts", "Apps & shortcuts", "Favourite apps plus Quick, Off-Road, Gauges, Vehicle and Apps.", 4, 3, 3, 1,

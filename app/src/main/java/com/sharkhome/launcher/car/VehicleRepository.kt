@@ -34,7 +34,7 @@ data class WriteResult(val key: String, val sent: Boolean, val confirmed: Boolea
 class VehicleRepository(
     private val ctx: Context,
     private val scope: CoroutineScope,
-    val codes: CarCodes,
+    @Volatile var codes: CarCodes,
     val carAdapter: CarAdapterBackend,
     val bydAuto: BydAutoBackend,
     private val prefs: Prefs,
@@ -118,6 +118,12 @@ class VehicleRepository(
             delay(1200)
             pollOnce()
         }
+    }
+
+    /** Swaps in a freshly loaded [CarCodes] (e.g. from the external override file) and triggers an immediate poll. */
+    fun reloadCodes(newCodes: CarCodes) {
+        codes = newCodes
+        scope.launch(Dispatchers.IO) { pollOnce() }
     }
 
     fun pollOnce() {
@@ -297,17 +303,7 @@ class VehicleRepository(
     }
 
     suspend fun writeLabel(key: String, label: String): WriteResult {
-        // ESC off: only while (almost) stationary. Turning it back ON is always allowed.
-        if (key == "chassis.stability" && label == "off") {
-            val kmh = _readings.value["vehicle.speedKmh"]?.value
-            if (kmh == null || kmh > ESC_OFF_MAX_KMH) {
-                return WriteResult(key, false, false, "Refused: ESC can only be switched off below ${ESC_OFF_MAX_KMH.toInt()} km/h").also { _lastWrite.value = it }
-            }
-        }
-        // Terrain modes are chosen with the scroll wheel on the car; BYD confirms some of them (they change safety systems).
-        if (key == ROAD_MODE) {
-            return WriteResult(key, false, false, "Trail modes are chosen with the scroll wheel on the car").also { _lastWrite.value = it }
-        }
+        // No signal is refused here (owner's decision, GitHub #7, 20 Nov 2026): the app only writes what the user sets.
         val raw = rawFor(key, label)
             ?: return WriteResult(key, false, false, "No code known for \"$label\" yet").also { _lastWrite.value = it }
         val sig = codes.signals[key] ?: return WriteResult(key, false, false, "Unknown signal $key")
@@ -434,7 +430,6 @@ class VehicleRepository(
     companion object {
         const val ROAD_MODE = "drive.roadMode"
         /** ESC may be switched off from the Drive tab only at or below this speed. */
-        const val ESC_OFF_MAX_KMH = 10.0
         const val TAG = "SharkCar"
         /** Read every [FAST_MS] instead of once a second. */
         val FAST_KEYS = setOf("vehicle.speedKmh", "light.turnSignal", "light.brakeLamp", "vehicle.brake", "vehicle.gear", "vehicle.powerKw", "pedal.accelerator", "pedal.brake", "chassis.steeringAngle")

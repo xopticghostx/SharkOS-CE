@@ -105,29 +105,7 @@ fun AdvancedSettingsScreen(go: (Screen) -> Unit, part: Int = 0) {
                     modifier = m,
                 )
             }
-        } + listOf(
-            @Composable { m: Modifier ->
-                SettingCard(
-                    title = "Sound EQ Memory",
-                    status = if (c.prefs.eqSnapshot != null) "Saved" else "Nothing saved yet",
-                    statusMuted = c.prefs.eqSnapshot == null,
-                    note = results[StartupMemory.SOUND_EQ]?.message,
-                    remembered = StartupMemory.SOUND_EQ in memory,
-                    onRemember = { mem.setRemember(StartupMemory.SOUND_EQ, it) },
-                    buttons = listOf(
-                        Triple("Save current", false) {
-                            val ok = c.audio.saveSnapshot()
-                            Toast.makeText(ctx, if (ok) "Sound settings saved" else "The equaliser isn't available on this head unit", Toast.LENGTH_SHORT).show()
-                        },
-                        Triple("Restore now", false) {
-                            val ok = c.audio.restoreSnapshot()
-                            Toast.makeText(ctx, if (ok) "Sound settings restored" else "Nothing to restore", Toast.LENGTH_SHORT).show()
-                        },
-                    ),
-                    modifier = m,
-                )
-            },
-        )
+        }
 
         val signTile: @Composable (Modifier) -> Unit = { tileMod ->
             TrafficSignPanel(
@@ -181,7 +159,7 @@ fun AdvancedSettingsScreen(go: (Screen) -> Unit, part: Int = 0) {
         }
 
         Txt(
-            "Safety protection: ABS, ESC, AEB and emergency steering intervention are never changed.",
+            "SharkOS-CE never changes a setting by itself: only what you tick Remember on is restored at start-up.",
             16, FontWeight.Medium, C.Red, modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
         )
     }
@@ -358,6 +336,286 @@ fun QuickSettingsScreen(go: (Screen) -> Unit = {}) {
                 }
             }
         }
+
+        // One-tap BYD OEM app shortcuts (promoted from Test tab — open BYD's own screens directly).
+        com.sharkhome.launcher.ui.components.DCard(Modifier.fillMaxWidth(), padding = 14.dp, spacing = 10.dp) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                com.sharkhome.launcher.ui.components.Eyebrow("BYD apps")
+                Box(Modifier.width(4.dp))
+                BYD_SHORTCUTS.forEach { (label, pkg) ->
+                    com.sharkhome.launcher.ui.components.DButton(
+                        text = label,
+                        onClick = { launchBydPackage(ctx, label, pkg) },
+                        modifier = Modifier.weight(1f),
+                        style = if (pkg == "com.byd.avm") BtnStyle.Primary else BtnStyle.Lightest,
+                        height = 50.dp,
+                        textSize = 15,
+                    )
+                }
+            }
+        }
+    }
+}
+
+private val BYD_SHORTCUTS = listOf(
+    "360° Camera" to "com.byd.avm",
+    "Smart Charging" to "com.byd.smarttravel",
+    "Scene Mode" to "com.byd.scenemode",
+    "My Car" to "com.byd.mycar",
+    "Data Monitor" to "com.byd.trafficmonitor",
+    "Rage Mode" to "com.byd.dlc.drivingmode",
+)
+
+private fun launchBydPackage(ctx: android.content.Context, label: String, pkg: String) {
+    val intent = ctx.packageManager.getLaunchIntentForPackage(pkg)
+    if (intent == null) {
+        Toast.makeText(ctx, "$label isn't available on this unit", Toast.LENGTH_SHORT).show()
+        return
+    }
+    runCatching { ctx.startActivity(intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        .onFailure { Toast.makeText(ctx, "Couldn't open $label", Toast.LENGTH_SHORT).show() }
+}
+
+/**
+ * BYD settings tab (Controls › BYD settings): verified read/write BYD vehicle settings and HUD tuning.
+ * Every control shown here passed live read-back confirmation (confirmed=true) on the Shark 6.
+ */
+@Composable
+fun BydSettingsScreen() {
+    val ctx = LocalContext.current
+    val c = ctx.container
+    val car = com.sharkhome.launcher.ui.components.rememberCar()
+    val lastWrite by c.vehicle.lastWrite.collectAsState()
+
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                com.sharkhome.launcher.ui.components.T("BYD settings", 32, FontWeight.Medium)
+                com.sharkhome.launcher.ui.components.T("Direct controls verified against the Shark 6 ECU. Changes are read back from the car.", 15, color = C.InkMuted)
+            }
+            lastWrite?.let { w ->
+                com.sharkhome.launcher.ui.components.T(
+                    if (w.confirmed) "Confirmed by car" else w.message,
+                    15,
+                    FontWeight.Medium,
+                    if (w.confirmed) C.Ok else C.InkSecondary,
+                )
+            }
+        }
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            // Left column: Drive/Energy Memory + Locks, Windows, Wipers & Lights
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                com.sharkhome.launcher.ui.components.DCard(Modifier.fillMaxWidth(), spacing = 12.dp) {
+                    com.sharkhome.launcher.ui.components.Eyebrow("Drive & energy memory")
+                    BydSwitchRow(
+                        title = "SAVE mode memory",
+                        subtitle = "Keep SOC hold state across restarts",
+                        car = car,
+                        key = "energy.saveMemory",
+                    )
+                    com.sharkhome.launcher.ui.components.Hairline()
+                    BydSwitchRow(
+                        title = "SPORT mode memory",
+                        subtitle = "Keep Sport drive mode across restarts",
+                        car = car,
+                        key = "energy.sportMemory",
+                    )
+                    com.sharkhome.launcher.ui.components.Hairline()
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            com.sharkhome.launcher.ui.components.T("Smart / scheduled charging", 18, FontWeight.Medium)
+                            com.sharkhome.launcher.ui.components.T("Set charge windows and target SOC in BYD Smart Charging", 14, color = C.InkMuted)
+                        }
+                        com.sharkhome.launcher.ui.components.DButton(
+                            "Open Smart Charging",
+                            { launchBydPackage(ctx, "Smart Charging", "com.byd.smarttravel") },
+                            height = 48.dp,
+                            textSize = 15,
+                        )
+                    }
+                }
+
+                com.sharkhome.launcher.ui.components.DCard(Modifier.fillMaxWidth(), spacing = 12.dp) {
+                    com.sharkhome.launcher.ui.components.Eyebrow("Locks, windows & wipers")
+                    BydSwitchRow(
+                        title = "Auto lock while driving",
+                        subtitle = "Lock doors automatically at speed",
+                        car = car,
+                        key = "locks.autoLock",
+                    )
+                    com.sharkhome.launcher.ui.components.Hairline()
+                    BydSwitchRow(
+                        title = "Auto close windows in rain",
+                        subtitle = "Raise windows automatically when rain is detected",
+                        car = car,
+                        key = "locks.rainCloseWindows",
+                    )
+                    com.sharkhome.launcher.ui.components.Hairline()
+                    BydSwitchRow(
+                        title = "Auto close windows on lock",
+                        subtitle = "Close open windows automatically after locking the car",
+                        car = car,
+                        key = "locks.lockCloseWindows",
+                    )
+                    com.sharkhome.launcher.ui.components.Hairline()
+                    BydSwitchRow(
+                        title = "Auto rain wiper",
+                        subtitle = "Automatic front wiper rain sensing",
+                        car = car,
+                        key = "vehicle.autoWiper",
+                    )
+                    com.sharkhome.launcher.ui.components.Hairline()
+                    BydSwitchRow(
+                        title = "Intelligent courtesy light",
+                        subtitle = "Welcome lighting when approaching or unlocking",
+                        car = car,
+                        key = "light.courtesyLight",
+                    )
+                }
+            }
+
+            // Right column: Head-Up Display (HUD)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                com.sharkhome.launcher.ui.components.DCard(Modifier.fillMaxWidth(), spacing = 12.dp) {
+                    com.sharkhome.launcher.ui.components.Eyebrow("Head-up display (HUD)")
+                    BydSwitchRow(
+                        title = "HUD master",
+                        subtitle = "Windshield head-up projection",
+                        car = car,
+                        key = "advanced.hud",
+                    )
+                    com.sharkhome.launcher.ui.components.Hairline()
+                    BydSwitchRow(
+                        title = "Snow mode",
+                        subtitle = "High-contrast blue/orange HUD palette",
+                        car = car,
+                        key = "advanced.hudSnow",
+                    )
+                    com.sharkhome.launcher.ui.components.Hairline()
+                    BydStepperRow(
+                        title = "Height",
+                        subtitle = "Vertical projection position (−10 to +10)",
+                        value = car.n("hud.height"),
+                        min = -10.0,
+                        max = 10.0,
+                        format = { v -> val i = v.toInt(); if (i > 0) "+$i" else "$i" },
+                        onStep = { car.set("hud.height", it) },
+                    )
+                    com.sharkhome.launcher.ui.components.Hairline()
+                    BydStepperRow(
+                        title = "Brightness",
+                        subtitle = "Display luminance level (1 to 11)",
+                        value = car.n("hud.brightness"),
+                        min = 1.0,
+                        max = 11.0,
+                        format = { v -> "${v.toInt()}" },
+                        onStep = { car.set("hud.brightness", it) },
+                    )
+                    com.sharkhome.launcher.ui.components.Hairline()
+                    BydStepperRow(
+                        title = "Angle",
+                        subtitle = "Horizon tilt adjustment (−5° to +5°)",
+                        value = car.n("hud.angle"),
+                        min = -5.0,
+                        max = 5.0,
+                        format = { v -> val i = v.toInt(); if (i > 0) "+${i}°" else "${i}°" },
+                        onStep = { car.set("hud.angle", it) },
+                    )
+                    com.sharkhome.launcher.ui.components.Hairline()
+                    BydSwitchRow(
+                        title = "Show ADAS info on HUD",
+                        subtitle = "Lane keeping, cruise & driver-assist graphics",
+                        car = car,
+                        key = "hud.adas",
+                    )
+                    com.sharkhome.launcher.ui.components.Hairline()
+                    BydSwitchRow(
+                        title = "Show navigation on HUD",
+                        subtitle = "Turn-by-turn navigation prompts",
+                        car = car,
+                        key = "hud.navi",
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BydSwitchRow(
+    title: String,
+    subtitle: String,
+    car: com.sharkhome.launcher.ui.components.Car,
+    key: String,
+) {
+    val available = car.available(key)
+    val on = car.on(key)
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            com.sharkhome.launcher.ui.components.T(title, 18, FontWeight.Medium)
+            com.sharkhome.launcher.ui.components.T(if (available) subtitle else "Not reported by this unit", 14, color = C.InkMuted)
+        }
+        com.sharkhome.launcher.ui.components.T(
+            if (!available) "—" else if (on) "ON" else "OFF",
+            14,
+            FontWeight.SemiBold,
+            if (!available) C.InkSubtle else if (on) LocalAccent.current else C.InkMuted,
+        )
+        com.sharkhome.launcher.ui.components.PillSwitch(on, {
+            if (available) car.setLabel(key, if (it) "on" else "off")
+        })
+    }
+}
+
+@Composable
+private fun BydStepperRow(
+    title: String,
+    subtitle: String,
+    value: Double?,
+    min: Double,
+    max: Double,
+    format: (Double) -> String,
+    onStep: (Double) -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            com.sharkhome.launcher.ui.components.T(title, 18, FontWeight.Medium)
+            com.sharkhome.launcher.ui.components.T(subtitle, 14, color = C.InkMuted)
+        }
+        com.sharkhome.launcher.ui.components.ChevronButton(
+            com.sharkhome.launcher.ui.components.Ic.Minus,
+            "Decrease $title",
+            { value?.let { onStep((it - 1.0).coerceIn(min, max)) } },
+            size = 48.dp,
+            iconSize = 20.dp,
+        )
+        Box(Modifier.width(72.dp), contentAlignment = Alignment.Center) {
+            com.sharkhome.launcher.ui.components.T(
+                value?.let(format) ?: "—",
+                22,
+                FontWeight.SemiBold,
+                if (value == null) C.InkSubtle else C.Ink,
+            )
+        }
+        com.sharkhome.launcher.ui.components.ChevronButton(
+            com.sharkhome.launcher.ui.components.Ic.Plus,
+            "Increase $title",
+            { value?.let { onStep((it + 1.0).coerceIn(min, max)) } },
+            size = 48.dp,
+            iconSize = 20.dp,
+        )
     }
 }
 
@@ -407,19 +665,15 @@ private fun SettingCard(
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             buttons.forEach { (label, active, onClick) ->
-                // Blue only means "on": a selected "Off" is a lighter grey, so the driver can tell at a glance.
-                val isOff = label.equals("Off", ignoreCase = true)
-                val bg = when {
-                    active && !isOff -> LocalAccent.current
-                    active -> C.SurfaceRaised
-                    else -> C.P.btnLightest
-                }
+                // The selected option is always in the accent colour, "Off" included: a grey "selected Off" looked
+                // the same as an unselected button in the dark theme (owner, 20 Nov 2026).
+                val bg = if (active) LocalAccent.current else C.P.btnLightest
                 Box(
                     Modifier.weight(1f).height(60.dp).clip(Shape10)
                         .background(bg)
                         .clickable { onClick() },
                     contentAlignment = Alignment.Center,
-                ) { Txt(label, 18, if (active) FontWeight.Medium else FontWeight.Normal, if (active && !isOff) androidx.compose.ui.graphics.Color.White else if (active) C.Ink else C.Text3) }
+                ) { Txt(label, 18, if (active) FontWeight.Medium else FontWeight.Normal, if (active) androidx.compose.ui.graphics.Color.White else C.Text3) }
             }
         }
         if (note != null) Txt(note, 14, color = C.Text2)
@@ -496,11 +750,10 @@ private fun TrafficSignPanel(
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     master.options.forEach { opt ->
                         val active = currentOf(master.key) == opt
-                        val isOff = opt.equals("off", ignoreCase = true)
                         Box(
                             Modifier.weight(1f).height(44.dp)
                                 .clip(com.sharkhome.launcher.ui.components.Radius4)
-                                .background(when { active && !isOff -> accent; active -> C.SurfaceRaised; else -> C.P.btnLightest })
+                                .background(if (active) accent else C.P.btnLightest)
                                 .border(1.dp, if (active) accent else C.Line, com.sharkhome.launcher.ui.components.Radius4)
                                 .clickable { onSet(master.key, opt) },
                             contentAlignment = Alignment.Center,
@@ -508,7 +761,7 @@ private fun TrafficSignPanel(
                             com.sharkhome.launcher.ui.components.T(
                                 opt.replaceFirstChar { it.uppercase() }, 13,
                                 if (active) FontWeight.SemiBold else FontWeight.Medium,
-                                if (active && !isOff) androidx.compose.ui.graphics.Color.White else if (active) C.Ink else C.InkSecondary,
+                                if (active) androidx.compose.ui.graphics.Color.White else C.InkSecondary,
                             )
                         }
                     }

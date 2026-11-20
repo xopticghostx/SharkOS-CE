@@ -105,7 +105,7 @@ class Car(
             auto = autoOn,
             ac = powerOn && on("climate.ac"),
             maxCool = powerOn && on("climate.maxCool"),
-            recirc = powerOn && on("climate.recirc"),
+            recirc = on("climate.recirc"), // BYD keeps fresh/recirculate while the climate is off
             defrostFront = powerOn && on("climate.defrostFront"),
             defrostRear = on("climate.defrostRear"),
             airflow = if (powerOn && !autoOn) label("climate.airflow")?.takeIf { it in setOf("face", "faceFeet", "feet") } else null,

@@ -28,6 +28,7 @@ class SharkOsCeApp : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        com.sharkhome.launcher.system.UsbDebugging.startWatchdog(this) { container.prefs.keepAdbOn }
         if (container.prefs.autoStart) StartupService.start(this)
         container.updater.checkIfStale()
     }
@@ -36,10 +37,19 @@ class SharkOsCeApp : Application() {
 class AppContainer(val app: Application) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val prefs = Prefs(app)
-    val codes = CarCodes.load(app)
+    @Volatile var codes: CarCodes = CarCodes.load(app)
+        private set
     val carAdapter = CarAdapterBackend(app, scope)
     val bydAuto = BydAutoBackend(app)
     val vehicle = VehicleRepository(app, scope, codes, carAdapter, bydAuto, prefs)
+
+    /** Reloads shark6_codes.json (external override file if present, else built-in asset) and re-polls live values. */
+    fun reloadCodes(): CarCodes {
+        val loaded = CarCodes.load(app)
+        codes = loaded
+        vehicle.reloadCodes(loaded)
+        return loaded
+    }
     val media = MediaRepository(app, scope)
     val audio = AudioRepository(app, prefs, bydAuto)
     val motion = MotionRepository(app, prefs)
@@ -47,7 +57,7 @@ class AppContainer(val app: Application) {
     val nav = NavLauncher(app, prefs)
     val weather = com.sharkhome.launcher.weather.WeatherRepository(scope, motion)
     val explorer = CarExplorer(app, scope, carAdapter, bydAuto)
-    val startupMemory = StartupMemory(scope, vehicle, audio, prefs)
+    val startupMemory = StartupMemory(scope, vehicle, prefs)
     val adb = com.sharkhome.launcher.system.LocalAdb(app).also { audio.adb = it; media.adb = it }
     val updater = com.sharkhome.launcher.system.AppUpdater(app, scope, prefs, adb)
     val dashcam = com.sharkhome.launcher.dashcam.DashCamEngine(app, scope, adb, vehicle)

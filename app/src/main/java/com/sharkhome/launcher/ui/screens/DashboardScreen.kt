@@ -70,6 +70,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlin.math.roundToInt
 import com.sharkhome.launcher.Screen
+import com.sharkhome.launcher.media.AudioRepository
 import com.sharkhome.launcher.NavLauncher
 import com.sharkhome.launcher.container
 import com.sharkhome.launcher.media.AaNavInfo
@@ -1048,7 +1049,7 @@ fun Car.readable(key: String): String = label(key) ?: n(key)?.let { "Mode ${it.t
 
 fun climateTiles(car: Car) = listOf(
     TileSpec("A/C", Ic.AC, car.climateOn("climate.ac")) { car.toggle("climate.ac") },
-    TileSpec("Recirculate", Ic.Recirc, car.climateOn("climate.recirc")) { car.toggle("climate.recirc") },
+    TileSpec("Recirculate", Ic.Recirc, car.on("climate.recirc")) { car.toggle("climate.recirc") },
     TileSpec("Front Demist", Ic.FrontDemist, car.climateOn("climate.defrostFront")) { car.toggle("climate.defrostFront") },
     TileSpec("Rear Demist", Ic.RearDemist, car.on("climate.defrostRear")) { car.toggle("climate.defrostRear") },
 )
@@ -1291,14 +1292,14 @@ internal fun MediaCard(modifier: Modifier, hidden: Set<String> = emptySet()) {
     val c = ctx.container
     val np by c.media.nowPlaying.collectAsState()
     val access by c.media.hasAccess.collectAsState()
-    val eq by c.audio.eq.collectAsState()
+    val sound by c.audio.sound.collectAsState()
     val vol by c.audio.volume.collectAsState()
 
-    // The card can be short (4×3). Source and Equaliser only fit in a tall card; composing them in a short one just
+    // The card can be short (4×3). Source and Sound only fit in a tall card; composing them in a short one just
     // gets them clipped (and pushed the Volume bar mostly out of view), so they wait until there is room.
     BoxWithConstraints(modifier) {
     val roomForSource = maxHeight >= 500.dp
-    val roomForEq = maxHeight >= 640.dp
+    val roomForEq = maxHeight >= 600.dp
     DCard(Modifier.fillMaxSize(), spacing = 16.dp) {
         if ("controls" in hidden) {
             // track & controls switched off in Options
@@ -1308,7 +1309,7 @@ internal fun MediaCard(modifier: Modifier, hidden: Set<String> = emptySet()) {
             TrackRow(np)
             Progress(np)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                IconTap(Ic.Sliders, "Equaliser", C.InkMuted, 30.dp) { c.audio.setEnabled(!eq.enabled) }
+                IconTap(Ic.Sliders, "BYD sound settings", C.InkMuted, 30.dp) { c.apps.launchPackage(AudioRepository.BYD_SETTINGS_PKG, "BYD Settings") }
                 IconTap(Ic.Prev, "Previous track", C.Ink, 40.dp) { c.media.previous() }
                 IconTap(if (np?.playing == true) Ic.Pause else Ic.Play, if (np?.playing == true) "Pause" else "Play", C.Ink, 52.dp) { c.media.playPause() }
                 IconTap(Ic.Next, "Next track", C.Ink, 40.dp) { c.media.next() }
@@ -1355,42 +1356,21 @@ internal fun MediaCard(modifier: Modifier, hidden: Set<String> = emptySet()) {
             }, textSize = 16, height = 60.dp)
         }
 
-        if ("eq" !in hidden && roomForEq) Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                T("Equaliser", 18, color = C.InkSecondary, modifier = Modifier.weight(1f))
-                if (eq.available) {
-                    if (eq.enabled && eq.presets.isNotEmpty()) {
-                        val name = eq.presets.getOrNull(eq.currentPreset) ?: "Custom"
-                        Row(
-                            Modifier.height(56.dp).width(184.dp).clip(Radius4).background(C.P.btnLightest)
-                                .clickable { c.audio.usePreset((eq.currentPreset + 1).mod(eq.presets.size)) }.padding(horizontal = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            T(name, 16, color = C.P.btnInk, modifier = Modifier.weight(1f))
-                            DsIcon(Ic.ChevronDown, C.P.btnInk, 16.dp)
-                        }
-                    }
-                    PillSwitch(eq.enabled, { c.audio.setEnabled(it) })
-                    T(if (eq.enabled) "On" else "Off", 16, FontWeight.Medium, modifier = Modifier.width(32.dp))
-                }
+        // BYD's Dynaudio sound settings, read from the car. Apps can't change them (see AudioRepository), so the
+        // button opens BYD Settings, where they are under System › Audio.
+        if ("eq" !in hidden && roomForEq) Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                T("Sound", 18, color = C.InkSecondary, modifier = Modifier.weight(1f))
+                SmallButton("BYD Audio settings", { c.apps.launchPackage(AudioRepository.BYD_SETTINGS_PKG, "BYD Settings") }, height = 40.dp)
             }
-            when {
-                !eq.available -> T("This head unit doesn't allow a system equaliser${eq.error?.let { " ($it)" } ?: ""}.", 14, color = C.InkMuted, maxLines = 3)
-                // Turning the equaliser off collapses the bands, as in the design.
-                eq.enabled -> Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    eq.bands.forEach { b ->
-                        val span = (eq.maxLevel - eq.minLevel).coerceAtLeast(1)
-                        Column(Modifier.fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            T((b.level / 100.0).let { if (it > 0) "+%.0f".format(it) else "%.0f".format(it) }, 14, FontWeight.Medium)
-                            VSlider(
-                                (b.level - eq.minLevel).toFloat() / span,
-                                { f -> c.audio.setBand(b.index, (eq.minLevel + f * span).toInt()) },
-                                Modifier.weight(1f),
-                                color = C.Ink,
-                            )
-                            T(if (b.centerHz >= 1000) "${b.centerHz / 1000}k" else "${b.centerHz}", 14, color = C.InkMuted)
-                        }
-                    }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    T("Dynaudio Sound", 14, color = C.InkMuted)
+                    T(sound.presetName ?: "Unknown", 18, FontWeight.Medium)
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    T("Dynaudio Focus", 14, color = C.InkMuted)
+                    T(sound.focusName ?: "Unknown", 18, FontWeight.Medium)
                 }
             }
         }

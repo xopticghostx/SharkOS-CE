@@ -232,6 +232,14 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("eqOn", false)
         set(v) = edit { putBoolean("eqOn", v) }
 
+    var bassEnabled: Boolean
+        get() = sp.getBoolean("bassOn", false)
+        set(v) = edit { putBoolean("bassOn", v) }
+
+    var bassStrength: Int
+        get() = sp.getInt("bassStrength", 0)
+        set(v) = edit { putInt("bassStrength", v) }
+
     var eqLevels: List<Int>
         get() = sp.getString("eqLevels", "")!!.split(',').mapNotNull { it.trim().toIntOrNull() }
         set(v) = edit { putString("eqLevels", v.joinToString(",")) }
@@ -257,11 +265,6 @@ class Prefs(ctx: Context) {
         }
         set(v) = edit { putString("presets", JSONArray().apply { v.forEach { put(it.toJson()) } }.toString()) }
 
-    /** Equaliser snapshot for Advanced Settings' Sound EQ memory: "enabled;level,level,…". */
-    var eqSnapshot: String?
-        get() = sp.getString("eqSnapshot", null)
-        set(v) = edit { putString("eqSnapshot", v) }
-
     /** Advanced Settings startup memory: signal key -> label to restore (e.g. "advanced.laneAssist" -> "off"). */
     var advancedMemory: Map<String, String>
         get() {
@@ -285,9 +288,14 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("openOnStart", true)
         set(v) = edit { putBoolean("openOnStart", v) }
 
+    /** Switch USB/wireless debugging straight back on when something turns it off (BYD's OTA app does on every restart). */
+    var keepAdbOn: Boolean
+        get() = sp.getBoolean("keepAdbOn", false)
+        set(v) = edit { putBoolean("keepAdbOn", v) }
+
     /** Full-screen immersive mode to hide BYD's bottom system navigation bar. */
     var fullScreenMode: Boolean
-        get() = sp.getBoolean("fullScreenMode", true)
+        get() = sp.getBoolean("fullScreenMode", false) // off by default: BYD's dock (with its rotate button) stays reachable (GitHub #5)
         set(v) = edit { putBoolean("fullScreenMode", v) }
 
     /** Collapse the left navigation rail into a slim pull tab to maximise dashboard width. */
@@ -305,7 +313,7 @@ class Prefs(ctx: Context) {
         get() = sp.getString("navPosition", "left") ?: "left"
         set(v) = edit { putString("navPosition", v) }
 
-    /** "auto" (dark when the headlights are on, or at night), "light", "dark" or "shark" (dark in deep-sea blue). */
+    /** "auto" (follows BYD's light/dark theme via Android night mode), "light", "dark" or "shark" (dark in deep-sea blue). */
     var themeMode: String
         get() = sp.getString("theme", "auto") ?: "auto"
         set(v) = edit { putString("theme", v) }
@@ -380,6 +388,30 @@ class Prefs(ctx: Context) {
     var towChecklist: Int
         get() = sp.getInt("towChecklist", 0)
         set(v) = edit { putInt("towChecklist", v) }
+
+    /**
+     * Test-tab user marks ("works", "fails", "later") keyed by test item id, persisted across restarts so the owner
+     * can tick off results in the car and review them later.
+     */
+    var testMarks: Map<String, String>
+        get() {
+            val raw = sp.getString("testMarks", "") ?: ""
+            if (raw.isBlank()) return emptyMap()
+            return raw.split(';').mapNotNull { entry ->
+                val idx = entry.indexOf('=')
+                if (idx <= 0 || idx >= entry.lastIndex) null
+                else entry.substring(0, idx) to entry.substring(idx + 1)
+            }.toMap()
+        }
+        set(v) = edit {
+            putString("testMarks", v.entries.joinToString(";") { "${it.key}=${it.value}" })
+        }
+
+    fun setTestMark(id: String, mark: String?) {
+        val current = testMarks
+        val next = if (mark.isNullOrBlank() || current[id] == mark) current - id else current + (id to mark)
+        testMarks = next
+    }
 
     /** The build whose one-time Ko-fi thank-you was last shown (0 = never). */
     var supportShownBuild: Int

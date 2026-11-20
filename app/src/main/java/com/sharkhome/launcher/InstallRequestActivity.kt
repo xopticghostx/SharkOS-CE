@@ -64,7 +64,8 @@ class InstallRequestActivity : ComponentActivity() {
         val installer = AppInstaller(this, c.adb, perms)
         val uri: Uri? = intent.data ?: @Suppress("DEPRECATION") intent.getParcelableExtra(Intent.EXTRA_STREAM)
         val wantResult = intent.getBooleanExtra(Intent.EXTRA_RETURN_RESULT, false)
-        val dark = c.prefs.themeMode == "dark" || c.prefs.themeMode == "shark"
+        val dark = c.prefs.themeMode == "dark" || c.prefs.themeMode == "shark" ||
+            (c.prefs.themeMode == "auto" && (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES)
 
         setContent {
             var step by remember { mutableStateOf<Step>(Step.Preparing) }

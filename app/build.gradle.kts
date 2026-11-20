@@ -38,8 +38,8 @@ android {
         applicationId = "com.sharkhome.launcher"
         minSdk = 29
         targetSdk = 35
-        versionCode = 82
-        versionName = "0.6.762"
+        versionCode = 96
+        versionName = "0.6.776"
         // The Shark 6 head unit is arm64; shipping only that keeps MapLibre's native library from adding ~30 MB.
         ndk { abiFilters += "arm64-v8a" }
         buildConfigField("String", "STADIA_KEY", "\"$stadiaKey\"")

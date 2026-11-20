@@ -1,6 +1,5 @@
 package com.sharkhome.launcher.car
 
-import com.sharkhome.launcher.media.AudioRepository
 import com.sharkhome.launcher.settings.Prefs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -18,13 +17,12 @@ import java.util.Locale
  * Advanced Settings Startup Memory: remembers BYD convenience settings the car resets on every start
  * (lane assist, speed-limit warning, driver monitoring, …) and puts them back after start-up.
  *
- * Safety rule: anything that touches braking, stability or emergency intervention is refused,
- * whatever the signal map says.
+ * Nothing is changed unless the user ticks Remember on it. There is no blocklist (owner's decision, GitHub #7,
+ * 20 Nov 2026): the user decides what is restored.
  */
 class StartupMemory(
     private val scope: CoroutineScope,
     private val vehicle: VehicleRepository,
-    private val audio: AudioRepository,
     private val prefs: Prefs,
 ) {
     data class Item(val key: String, val title: String, val options: List<String>, val note: String? = null)
@@ -53,9 +51,6 @@ class StartupMemory(
         val m = prefs.advancedMemory.toMutableMap()
         if (!on) {
             m.remove(key)
-        } else if (key == SOUND_EQ) {
-            if (prefs.eqSnapshot == null) audio.saveSnapshot()
-            m[key] = "snapshot"
         } else {
             val r = vehicle.readings.value[key]
             m[key] = vehicle.labelFor(key, r?.raw) ?: (ALL_ITEMS.first { it.key == key }.options.first())
@@ -82,7 +77,6 @@ class StartupMemory(
 
     /** Sets a value now; if it's remembered, the new choice becomes the one restored at start-up. */
     suspend fun set(key: String, label: String): WriteResult {
-        if (blocked(key)) return WriteResult(key, false, false, "Refused: safety systems are never changed")
         val res = setLock.withLock { vehicle.writeLabel(key, label) }
         _results.value = _results.value + (key to Result(key, res.confirmed, res.message, System.currentTimeMillis()))
         if (res.sent && isRemembered(key)) prefs.advancedMemory = prefs.advancedMemory + (key to label)
@@ -94,6 +88,9 @@ class StartupMemory(
         scope.launch(Dispatchers.IO) {
             lock.withLock {
               try {
+                // Older versions could remember the Android equaliser here. It never reached the car's speakers
+                // (see AudioRepository) and BYD keeps its own Dynaudio settings, so that entry is dropped.
+                if (SOUND_EQ in prefs.advancedMemory) prefs.advancedMemory = prefs.advancedMemory - SOUND_EQ
                 val wanted = prefs.advancedMemory
                 if (wanted.isEmpty()) return@withLock
                 _running.value = true
@@ -122,11 +119,6 @@ class StartupMemory(
 
     private suspend fun restoreOne(key: String, label: String): Result {
         val now = System.currentTimeMillis()
-        if (key == SOUND_EQ) {
-            val ok = runCatching { audio.restoreSnapshot() }.getOrDefault(false)
-            return Result(key, ok, if (ok) "Sound restored" else "No saved sound settings", now)
-        }
-        if (blocked(key)) return Result(key, false, "Refused: safety system", now)
         repeat(5) { attempt ->
             val current = vehicle.readings.value[key]
             if (current?.raw != null && vehicle.labelFor(key, current.raw) == label) {
@@ -141,16 +133,8 @@ class StartupMemory(
         return Result(key, false, err ?: "The car didn't accept $label", now)
     }
 
-    private fun blocked(key: String): Boolean {
-        if (SAFETY.containsMatchIn(key)) return true
-        // ESC can be switched from the Drive tab only (owner-authorised); never remembered or restored at start-up.
-        if (key == "chassis.stability") return true
-        val sig = vehicle.codes.signals[key] ?: return false
-        val calls = sig.write + sig.writeLabels.values.flatten()
-        return calls.any { src -> src.methods.any { SAFETY.containsMatchIn(it) } }
-    }
-
     companion object {
+        /** Removed in v0.6.771 (the old Android-equaliser memory); kept only to clean up the stored entry. */
         const val SOUND_EQ = "advanced.soundEq"
 
         /** Original Advanced Settings items ONLY. */
@@ -163,6 +147,7 @@ class StartupMemory(
             Item("advanced.driverMonitoring", "Driver Monitoring", listOf("off", "on")),
             Item("advanced.childPresence", "Child Presence Detection", listOf("off", "on"), "Leave this on if children ever travel in the car."),
             Item("advanced.dashMap", "Full-screen Dash Map", listOf("Simple", "Full screen")),
+            Item("chassis.stability", "Stability control (ESC)", listOf("off", "on")),
         )
 
         /** Items shown together in one Traffic Sign Recognition panel (master switch first). */
@@ -183,8 +168,5 @@ class StartupMemory(
         )
 
         val ALL_ITEMS = ITEMS + QUICK_ITEMS
-
-        /** ABS, ESC/ESP, traction, AEB, emergency steering/braking, airbags: never written. */
-        private val SAFETY = Regex("(?i)abs|esc|esp(?!eed)|tcs|(?<!dis)traction|aeb|aes\\b|emergency|collision|airbag|ebd|brakeassist")
     }
 }

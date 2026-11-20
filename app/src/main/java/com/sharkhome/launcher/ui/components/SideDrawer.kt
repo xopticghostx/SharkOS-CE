@@ -380,9 +380,9 @@ private fun DrawerPanel(
         ) { onGo(Screen.CLIMATE) }
 
         Item(
-            icon = Ic.Sliders, label = "Controls", subtitle = "Quick toggles, driving feel and startup controls",
+            icon = Ic.Sliders, label = "Controls", subtitle = "Quick toggles, driving feel, startup and BYD settings",
             selected = current == Screen.QUICK_SETTINGS || current == Screen.ADVANCED_SETTINGS, accent = accent,
-            chips = listOf("Quick controls" to { onControlsTab(0) }, "Startup controls" to { onControlsTab(1) }),
+            chips = listOf("Quick controls" to { onControlsTab(0) }, "Startup controls" to { onControlsTab(1) }, "BYD settings" to { onControlsTab(2) }),
         ) { onControlsTab(0) }
 
         Item(

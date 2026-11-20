@@ -121,20 +121,22 @@ fun Segmented(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
     height: Dp = 56.dp,
-    activeColor: (Int) -> Color = { C.Pressed },
-    activeText: (Int) -> Color = { C.Text },
+    activeColor: ((Int) -> Color)? = null,
+    activeText: ((Int) -> Color)? = null,
 ) {
+    // The selected option is the accent colour with a white label, so it reads at a glance in both themes (owner, 20 Nov 2026).
+    val accent = LocalAccent.current
     Row(modifier.clip(Shape10).background(if (C.P.dark) C.P.btnLightest else C.SurfacePanel).border(1.dp, C.Line, Shape10)) {
         options.forEachIndexed { i, o ->
             val sel = i == selected
             if (i > 0) Box(Modifier.width(1.dp).height(height).background(C.Line))
             Box(
                 Modifier.weight(1f).height(height)
-                    .background(if (sel) activeColor(i) else Color.Transparent)
+                    .background(if (sel) activeColor?.invoke(i) ?: accent else Color.Transparent)
                     .clickable { onSelect(i) },
                 contentAlignment = Alignment.Center,
             ) {
-                Txt(o, 18, if (sel) FontWeight.Medium else FontWeight.Normal, if (sel) activeText(i) else C.Text3)
+                Txt(o, 18, if (sel) FontWeight.Medium else FontWeight.Normal, if (sel) activeText?.invoke(i) ?: Color.White else C.Text3)
             }
         }
     }

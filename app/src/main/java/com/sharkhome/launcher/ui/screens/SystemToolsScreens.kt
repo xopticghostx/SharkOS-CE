@@ -124,6 +124,16 @@ private fun DebuggingRow() {
                 style = BtnStyle.Lightest,
             )
         }
+        Hairline(Modifier.padding(vertical = 12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            val prefs = ctx.container.prefs
+            var keep by remember { mutableStateOf(prefs.keepAdbOn) }
+            Column(Modifier.weight(1f)) {
+                T("Keep USB debugging on", 16)
+                T("Switches it straight back on when BYD turns it off (its update app does this whenever it restarts, which drops scrcpy and PC adb)", 13, color = C.InkMuted, maxLines = 2)
+            }
+            PillSwitch(keep, { keep = it; prefs.keepAdbOn = it; if (it && !on) scope.launch { on = UsbDebugging.enable(ctx, adb).enabled } })
+        }
     }
 }
 

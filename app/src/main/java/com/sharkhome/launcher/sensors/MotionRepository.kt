@@ -157,7 +157,12 @@ class MotionRepository(private val ctx: Context, private val prefs: Prefs) : Sen
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
+    /** The latest raw GPS fix, fed straight to the Home map's position arrow (see VectorMap). */
+    private val _fix = MutableStateFlow<Location?>(null)
+    val fix: StateFlow<Location?> = _fix
+
     override fun onLocationChanged(location: Location) {
+        _fix.value = Location(location)
         learnForward(if (location.hasSpeed()) location.speed else null)
         val speed = if (location.hasSpeed()) location.speed * 3.6f else null
         val bearing = if (location.hasBearing()) location.bearing else null

@@ -307,10 +307,11 @@ fun LineSegmented(
         options.forEachIndexed { i, o ->
             if (i > 0) VHairline()
             val sel = i == selected
+            // Selected = accent fill, white label (a pale grey selection was hard to see in the dark theme).
             Box(
-                Modifier.weight(1f).fillMaxHeight().background(if (sel) C.SurfaceRaised else Color.Transparent).clickable { onSelect(i) },
+                Modifier.weight(1f).fillMaxHeight().background(if (sel) LocalAccent.current else Color.Transparent).clickable { onSelect(i) },
                 contentAlignment = Alignment.Center,
-            ) { T(o, textSize, if (sel) FontWeight.Medium else FontWeight.Normal, if (sel) C.Ink else C.InkSecondary) }
+            ) { T(o, textSize, if (sel) FontWeight.Medium else FontWeight.Normal, if (sel) Color.White else C.InkSecondary) }
         }
     }
 }

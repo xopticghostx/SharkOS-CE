@@ -248,6 +248,18 @@
             </intent-filter>
         </receiver>
 
+        <!-- Built-in ADB testing hook (navigation, Test-tab marks dump, codes hot-reload, live read/verify).
+             Protected by android.permission.DUMP so only ADB shell (UID 2000) and system can invoke it. -->
+        <receiver
+            android:name=".car.AdbTestReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.DUMP">
+            <intent-filter>
+                <action android:name="com.sharkhome.launcher.ADB_TEST" />
+            </intent-filter>
+        </receiver>
+
         <!-- Only used to unlock media-session access; it never reads notifications. -->
         <service
             android:name=".media.MediaListenerService"

@@ -78,6 +78,7 @@ import kotlin.math.sin
 @Composable
 fun OffRoadScreen(initialTab: Int = 0) {
     var modeTab by rememberSaveable(initialTab) { mutableStateOf(initialTab.coerceIn(0, 2)) } // 0 = Terrain, 1 = Towing, 2 = Gauges
+    val ctx = LocalContext.current
     val car = com.sharkhome.launcher.ui.components.rememberCar()
     prefsTick()
 
@@ -93,11 +94,17 @@ fun OffRoadScreen(initialTab: Int = 0) {
             StatusBadge("Stability", if (car.label("chassis.stability") == "off") "OFF" else "ON", ok = car.label("chassis.stability") != "off", bad = car.label("chassis.stability") == "off")
             StatusBadge("Auto Hold", (car.label("chassis.autoHold") ?: "off").uppercase(), ok = car.on("chassis.autoHold"))
             StatusBadge("Trailer", if (car.on("trailer.mode")) "ON" else "OFF", ok = car.on("trailer.mode"))
+            DButton("360° Camera", {
+                val intent = ctx.packageManager.getLaunchIntentForPackage("com.byd.avm")
+                if (intent == null) Toast.makeText(ctx, "360° Camera isn't available on this unit", Toast.LENGTH_SHORT).show()
+                else runCatching { ctx.startActivity(intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                    .onFailure { Toast.makeText(ctx, "Couldn't open 360° Camera", Toast.LENGTH_SHORT).show() }
+            }, style = BtnStyle.Primary, height = 48.dp, textSize = 15, minWidth = 148.dp)
             LineSegmented(
                 options = listOf("Trail mode", "Towing", "Gauges"),
                 selected = modeTab,
                 onSelect = { modeTab = it },
-                modifier = Modifier.width(520.dp),
+                modifier = Modifier.width(460.dp),
                 height = 52.dp,
             )
         }
@@ -554,37 +561,21 @@ private fun LiveStrip(car: Car, gpsKmh: Float?) {
 }
 
 /**
- * ESC on/off, the same control as BYD's own quick-settings tile (owner-authorised 14 Nov 2026). Turning it OFF needs the
- * car at 10 km/h or below and a second tap within 4 s; turning it back ON is one tap, at any speed. It is never
- * remembered or restored at start-up.
+ * ESC on/off, the same control as BYD's own quick-settings tile: one tap switches it (the car shows clearly when ESC is
+ * off). It can also be remembered in Startup memory.
  */
 @Composable
 private fun EscTile(car: Car, modifier: Modifier) {
     val ctx = LocalContext.current
     val off = car.label("chassis.stability") == "off"
-    var armed by androidx.compose.runtime.remember { mutableStateOf(false) }
-    androidx.compose.runtime.LaunchedEffect(armed) { if (armed) { kotlinx.coroutines.delay(4000); armed = false } }
     Column(
         modifier.clip(Radius4).background(if (off) C.Alert else C.P.btnLightest).border(1.dp, if (off) C.Alert else C.Line, Radius4)
-            .clickable {
-                if (off) {
-                    car.steps { it.writeLabel("chassis.stability", "on") }
-                    armed = false
-                } else if (!armed) {
-                    val kmh = car.n("vehicle.speedKmh")
-                    if (kmh == null || kmh > VehicleRepository.ESC_OFF_MAX_KMH) {
-                        Toast.makeText(ctx, "ESC can only be switched off below ${VehicleRepository.ESC_OFF_MAX_KMH.toInt()} km/h", Toast.LENGTH_LONG).show()
-                    } else armed = true
-                } else {
-                    armed = false
-                    car.steps { it.writeLabel("chassis.stability", "off") }
-                }
-            }.padding(horizontal = 14.dp),
+            .clickable { car.steps { it.writeLabel("chassis.stability", if (off) "on" else "off") } }.padding(horizontal = 14.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         T(if (off) "ESC OFF" else "ESC ON", 20, FontWeight.SemiBold, if (off) Color.White else C.Ink)
-        T(if (off) "Tap to turn ESC back on" else if (armed) "Tap again to turn ESC OFF" else "Tap to turn off", 15, color = if (off) Color.White else C.InkMuted, maxLines = 2)
+        T(if (off) "Tap to turn ESC back on" else "Tap to turn off", 15, color = if (off) Color.White else C.InkMuted, maxLines = 2)
     }
 }
 

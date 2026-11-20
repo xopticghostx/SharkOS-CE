@@ -3,7 +3,7 @@
 **A free, open-source home screen and vehicle control app for the BYD Shark 6.**
 
 [![Licence: GPL-3.0](https://img.shields.io/badge/licence-GPL--3.0-blue.svg)](LICENSE)
-![Version](https://img.shields.io/badge/version-0.6.761-orange.svg)
+![Version](https://img.shields.io/badge/version-0.6.776-orange.svg)
 ![Firmware: SOC_260811_S](https://img.shields.io/badge/tested%20firmware-SOC__260811__S-lightgrey.svg)
 [![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-support%20the%20project-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/xopticghostx)
 
@@ -61,9 +61,9 @@ More detail and options: [SharkOS-CE-Installer/README.md](SharkOS-CE-Installer/R
 - Your notifications, with tap to open, dismiss and clear all.
 
 ### Driving
-- **Climate.** Both seats, heat and vent, fan, A/C, airflow, demist and one-tap presets. Every change is checked against what the car reports.
-- **Quick controls.** Large tiles for the car's switches, plus regen, brake pedal feel, steering feel and the battery hold target (25 to 70 %).
-- **Trail mode.** Pitch and roll inclinometer, trail systems (hill descent, ESC, auto hold), compass, altitude and a topographic map.
+- **Climate.** Both seats, heat and vent, fan, A/C, recirculate, airflow, demist and one-tap presets. Every change is checked against what the car reports.
+- **Quick controls & BYD settings.** Large tiles for the car's switches, BYD app shortcuts (360° Camera, Smart Charging, Scene Mode, My Car, Data Monitor, Rage Mode), driving feel, battery hold target (25 to 70 %), and a dedicated **BYD settings** tab (SAVE/SPORT memory, auto lock, rain wiper/window auto-close, courtesy light, and HUD controls).
+- **Trail mode.** Pitch and roll inclinometer, trail systems (hill descent, ESC, auto hold), 360° Camera button, compass, altitude and a topographic map.
 - **Towing.** Trailer mode, trailer size, a before-you-set-off checklist and one-tap towing handling.
 - **Gauges.** One large dial and five bar gauges, each showing the reading you choose.
 
@@ -73,10 +73,10 @@ More detail and options: [SharkOS-CE-Installer/README.md](SharkOS-CE-Installer/R
 - Loop storage that replaces the oldest clips, with saved clips and trips kept.
 
 ### Car and settings
-- **Car tab.** Tyre pressures, battery, fuel in litres, energy use, 12 V battery, battery health and the state of the car connection.
-- **Themes.** Light, Dark and Shark blue. **Auto** follows the car's day and night mode.
+- **Car tab.** Tyre pressures, battery, fuel in litres, Trip A & Trip B, energy use, 12 V battery, battery health and the state of the car connection.
+- **Themes.** Light, Dark and Shark blue. **Auto** follows BYD's light/dark mode.
 - **Startup memory.** Restores your chosen settings each time the car starts.
-- **Permissions & ADB, Install apps, Diagnostics and Updates** pages, so most setup needs no PC after the first install.
+- **Permissions & ADB, Install apps, Diagnostics, Test and Updates** pages, including a **Keep USB debugging on** switch so BYD's OTA app doesn't turn ADB off.
 - **Wake helper.** Reopens SharkOS CE when the car wakes from standby. SharkOS CE installs it for you.
 
 ## Screenshots
@@ -101,12 +101,10 @@ Screenshots were taken on the car with v0.6.761. Map and location details are hi
 
 ## Safety
 
-- Writes cover comfort and convenience settings: climate, seats, driving feel, drive mode, trailer mode, battery hold, hill descent, the Quick panel switches and the startup settings.
+- SharkOS CE never changes a car setting by itself: only the controls you press and the settings you tick **Remember** on.
 - Every write is followed by a read-back, and the screen shows the state the car reports.
-- A hard-coded blocklist (`StartupMemory.SAFETY`) refuses any signal that points at ABS, traction control, AEB, emergency steering or braking, airbags or collision warnings.
-- **One exception:** ESC can be switched off and on from the Drive tab, the same way BYD's own quick-settings tile does it. It only works at 10 km/h or less, needs a two-step confirm, and is never written by startup memory or any automation.
-- Wading and Sand terrain modes are never written, because BYD confirms those itself.
-- Set things up while parked.
+- There is no built-in blocklist or speed limit, so it can also switch off safety systems such as stability control (ESC) if you choose to. New signals added to `shark6_codes.json` hit no blocklist either.
+- You are responsible for what you change — check that it is legal where you drive and doesn't affect your insurance. Set things up while parked.
 
 ## Status
 
@@ -145,9 +143,9 @@ The project uses Gradle 8.14, Android Gradle Plugin 8.7 and Kotlin 2.1, with `mi
 
 SharkOS CE is built by one person in spare time, and it is free. Getting here took:
 
-- **81 builds** , each one installed and checked on a real Shark 6
+- **96 builds**, each one installed and checked on a real Shark 6
 - **About 19,000 lines** of Kotlin written from scratch
-- **163 car signals** mapped one at a time by probing the head unit and studying how BYD's own apps talk to the car, with every verified code written up in the [technical reference](BYD_SHARK6_REFERENCE.md)
+- **175 car signals** mapped one at a time by probing the head unit and studying how BYD's own apps talk to the car, with every verified code written up in the [technical reference](BYD_SHARK6_REFERENCE.md)
 
 If SharkOS CE makes your Shark 6 better, a donation keeps the work going. **Supporters get early access to new builds** before they are released here.
 

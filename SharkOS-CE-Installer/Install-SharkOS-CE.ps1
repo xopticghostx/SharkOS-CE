@@ -93,6 +93,27 @@ function Stop-Installer([string]$Message, [int]$Code = 1) {
     exit $Code
 }
 
+function Disable-QuickEdit {
+    # Clicking inside a console window with QuickEdit on starts a text selection, and Windows then freezes the script
+    # at its next line of output until a key is pressed. That looked like a stall after the firewall prompt
+    # (GitHub #4: people click back into the window after pressing Allow). Copy/paste still works via the title-bar menu.
+    if ($env:OS -ne 'Windows_NT') { return }
+    try {
+        Add-Type -Namespace SharkOs -Name Console -MemberDefinition @'
+[DllImport("kernel32.dll")] public static extern IntPtr GetStdHandle(int handle);
+[DllImport("kernel32.dll")] public static extern bool GetConsoleMode(IntPtr handle, out uint mode);
+[DllImport("kernel32.dll")] public static extern bool SetConsoleMode(IntPtr handle, uint mode);
+'@ -ErrorAction Stop
+        $h = [SharkOs.Console]::GetStdHandle(-10)   # STD_INPUT_HANDLE
+        $mode = 0
+        if ([SharkOs.Console]::GetConsoleMode($h, [ref]$mode)) {
+            # Clear ENABLE_QUICK_EDIT_MODE (0x40); ENABLE_EXTENDED_FLAGS (0x80) must be set for that to stick.
+            [void][SharkOs.Console]::SetConsoleMode($h, (($mode -bor 0x80) -band (-bnot 0x40)))
+            Log 'QuickEdit mode switched off for this window'
+        }
+    } catch { Log "QuickEdit not changed: $($_.Exception.Message)" }
+}
+
 # ---------------------------------------------------------------- adb
 
 function Invoke-Adb {
@@ -119,8 +140,12 @@ function Invoke-Adb {
         Log "adb $($psi.Arguments) -> timed out after $TimeoutSec s"
         return [pscustomobject]@{ Code = -1; Output = "timed out after $TimeoutSec s" }
     }
-    $p.WaitForExit()
-    $text = (($outTask.Result + "`n" + $errTask.Result) -replace "`r", '').Trim()
+    # Don't wait on the output pipes for ever: a freshly started adb server can inherit them and keep them open
+    # (older adb versions do), which would stall the installer even though adb itself has finished.
+    [void][System.Threading.Tasks.Task]::WaitAll(@($outTask, $errTask), 5000)
+    $out = if ($outTask.IsCompleted) { $outTask.Result } else { '' }
+    $err = if ($errTask.IsCompleted) { $errTask.Result } else { '' }
+    $text = (($out + "`n" + $err) -replace "`r", '').Trim()
     $logText = if ($text.Length -gt 400) { $text.Substring(0, 400) + ' ...(trimmed)' } else { $text }
     Log "adb $($psi.Arguments) -> [$($p.ExitCode)] $logText"
     return [pscustomobject]@{ Code = $p.ExitCode; Output = $text }
@@ -168,7 +193,25 @@ function Get-AdbTool {
     $v = Invoke-Adb -Arguments @('version') -NoSerial
     if ($v.Code -ne 0) { Stop-Installer "adb would not run: $($v.Output)" }
     Ok ("Using {0} ({1})" -f $found, ($v.Output -split "`n")[0])
-    [void](Invoke-Adb -Arguments @('start-server') -NoSerial -TimeoutSec 30)
+    Start-AdbServer
+}
+
+function Start-AdbServer {
+    # Started with no output pipes at all, so the background server can't hold the installer up.
+    Info 'Starting ADB. If Windows asks whether adb may use the network, click Allow:'
+    Info 'the installer carries on by itself (it needs the network to reach the car).'
+    try {
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $script:Adb
+        $psi.Arguments = 'start-server'
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $p = [System.Diagnostics.Process]::Start($psi)
+        if (-not $p.WaitForExit(60000)) { try { $p.Kill() } catch { }; Log 'adb start-server timed out after 60 s' }
+        else { Log "adb start-server -> [$($p.ExitCode)]" }
+    } catch { Log "adb start-server failed: $($_.Exception.Message)" }
+    $check = Invoke-Adb -Arguments @('devices') -NoSerial -TimeoutSec 30
+    if ($check.Code -eq 0) { Ok 'ADB is running' } else { Warn "ADB didn't start cleanly ($($check.Output)). The installer will try again when it connects." }
 }
 
 # ---------------------------------------------------------------- APK files
@@ -695,6 +738,7 @@ try {
     Clear-Host
 } catch { }
 Log '---------------- installer started ----------------'
+Disable-QuickEdit
 Say ''
 Say '  SharkOS CE installer for the BYD Shark 6' 'Cyan'
 Say '  ----------------------------------------' 'Cyan'
