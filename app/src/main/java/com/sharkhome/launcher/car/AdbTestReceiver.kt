@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
  *   reload                                         Hot-reload shark6_codes.json (external override file if present, else built-in)
  *   read    --es keys "k1,k2" | --es prefix "p."   Live-read signals and log raw, value, label, source, error
  *   verify  --es keys "k1,k2" [--es target "..."]  Read before -> write -> read-back -> restore original (refuses safety keys unless --ez allowSafety true)
+ *   play    --es file name.wav                     Play a sound file from the app's files folder (e.g. a recorded voice command for BYD's assistant)
  */
 class AdbTestReceiver : BroadcastReceiver() {
 
@@ -70,10 +71,57 @@ class AdbTestReceiver : BroadcastReceiver() {
                     }
                 }
             }
+            "play" -> {
+                val pending = goAsync()
+                val fileArg = intent.getStringExtra("file")
+                c.scope.launch(Dispatchers.IO) {
+                    try {
+                        handlePlay(context, fileArg)
+                    } catch (t: Throwable) {
+                        Log.e(TAG, "ADB_TEST play failed: ${t.message}", t)
+                    } finally {
+                        pending.finish()
+                    }
+                }
+            }
             else -> Log.e(
                 TAG,
-                "ADB_TEST help: cmds = status | open (--es page <route>) | marks | reload | read (--es keys k1,k2 | --es prefix p.) | verify (--es keys k1,k2 [--es target v] [--ei waitMs 500] [--ez allowSafety false])",
+                "ADB_TEST help: cmds = status | open (--es page <route>) | marks | reload | read (--es keys k1,k2 | --es prefix p.) | verify (--es keys k1,k2 [--es target v] [--ei waitMs 500] [--ez allowSafety false]) | play (--es file name.wav, from the app's files folder)",
             )
+        }
+    }
+
+    /**
+     * Plays a sound file through the car's normal audio path (media stream), so a recorded voice command can be
+     * "spoken" to BYD's voice assistant from ADB. The file must be in the app's own files folder (copy it there
+     * with `cp` from /sdcard, as for shark6_codes.json). Plays nothing else and writes nothing to the car.
+     */
+    private fun handlePlay(ctx: Context, name: String?) {
+        val f = name?.trim()?.takeIf { it.isNotEmpty() && !it.contains("/") && !it.contains("..") }
+            ?.let { java.io.File(ctx.getExternalFilesDir(null), it) }
+        if (f == null || !f.isFile) {
+            Log.e(TAG, "ADB_TEST play: file not found in ${ctx.getExternalFilesDir(null)} (name=$name)")
+            return
+        }
+        val done = java.util.concurrent.CountDownLatch(1)
+        val mp = android.media.MediaPlayer()
+        try {
+            mp.setAudioAttributes(
+                android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build(),
+            )
+            mp.setDataSource(f.absolutePath)
+            mp.setOnCompletionListener { done.countDown() }
+            mp.setOnErrorListener { _, w, e -> Log.e(TAG, "ADB_TEST play error what=$w extra=$e"); done.countDown(); true }
+            mp.prepare()
+            Log.e(TAG, "ADB_TEST play START ${f.name} ${mp.duration} ms")
+            mp.start()
+            done.await(30, java.util.concurrent.TimeUnit.SECONDS)
+            Log.e(TAG, "ADB_TEST play DONE ${f.name}")
+        } finally {
+            mp.release()
         }
     }
 

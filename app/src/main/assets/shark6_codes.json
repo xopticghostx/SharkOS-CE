@@ -1551,7 +1551,7 @@
       }
     },
     "climate.recirc": {
-      "_note": "Verified on the car 20 Nov 2026 (GitHub #6) by pressing BYD's own recirculate button and reading its W/f1 log: BYD sends BYDAutoAcDevice.setAcCycleMode(0, 0) for recirculate and (0, 1) for fresh air. The caradapter read getAcCycleMode reports 1 = recirculate, 2 = fresh. The caradapter setter only exists with two arguments, so the old one-argument write never ran. The state is independent of the climate being on.",
+      "_note": "CORRECTED 21 Nov 2026 (v0.6.778): the 20 Nov encoding was inverted. Checked against BYD's own climate screen (loop arrow inside the car = recirculate, arrow entering from outside = fresh air): BYDAutoAcDevice.setAcCycleMode(0, 1) = RECIRCULATE, (0, 0) = FRESH AIR. The caradapter read getAcCycleMode reports 2 = recirculate, 1 = fresh. The caradapter setter only exists with two arguments, so the old one-argument write never ran. The state is independent of the climate being on.",
       "read": [
         {
           "caradapter": "hvac",
@@ -1561,8 +1561,8 @@
         }
       ],
       "labels": {
-        "on": 1,
-        "off": 2
+        "on": 2,
+        "off": 1
       },
       "writeLabels": {
         "on": [
@@ -1573,7 +1573,7 @@
             ],
             "args": [
               0,
-              0
+              1
             ]
           }
         ],
@@ -1585,7 +1585,7 @@
             ],
             "args": [
               0,
-              1
+              0
             ]
           }
         ]
@@ -3636,6 +3636,88 @@
           ]
         }
       ]
+    },
+    "window.ctl.frontLeft": {
+      "_note": "WRITE ONLY (no read; use window.frontLeft for the open %). BYD's own voice assistant moves windows with BYDAutoBodyworkDevice.setWindowControlState(int[4]) (read from its APK 21 Nov 2026). Array index 0 = front left, 1 = front right, 2 = rear left, 3 = rear right; value 0 = leave alone, 1 = open, 2 = close. VERIFIED ON THE CAR 21 Nov 2026 on index 0: [1,0,0,0] opened it, [2,0,0,0] closed it (open % read 9, 88, 97 as it travelled). Windows are slow, so the generic confirm reports 'not reported yet'. Refused by the car while the window/child lock is on. Codes 4 (half) and 5 (small gap) exist but are unconfirmed.",
+      "labels": {
+        "open": 1,
+        "closed": 2
+      },
+      "writeLabels": {
+        "open": [
+          {
+            "bydauto": "bodywork.BYDAutoBodyworkDevice",
+            "methods": [
+              "setWindowControlState"
+            ],
+            "args": [
+              [
+                1,
+                0,
+                0,
+                0
+              ]
+            ]
+          }
+        ],
+        "closed": [
+          {
+            "bydauto": "bodywork.BYDAutoBodyworkDevice",
+            "methods": [
+              "setWindowControlState"
+            ],
+            "args": [
+              [
+                2,
+                0,
+                0,
+                0
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "window.ctl.frontRight": {
+      "_note": "WRITE ONLY. Index 1 of setWindowControlState(int[4]) (front right). Same codes as window.ctl.frontLeft; NOT yet tried on the car.",
+      "labels": {
+        "open": 1,
+        "closed": 2
+      },
+      "writeLabels": {
+        "open": [
+          {
+            "bydauto": "bodywork.BYDAutoBodyworkDevice",
+            "methods": [
+              "setWindowControlState"
+            ],
+            "args": [
+              [
+                0,
+                1,
+                0,
+                0
+              ]
+            ]
+          }
+        ],
+        "closed": [
+          {
+            "bydauto": "bodywork.BYDAutoBodyworkDevice",
+            "methods": [
+              "setWindowControlState"
+            ],
+            "args": [
+              [
+                0,
+                2,
+                0,
+                0
+              ]
+            ]
+          }
+        ]
+      }
     },
     "radar.frontLeft": {
       "_note": "UNVERIFIED (found in decompile research 16 Nov 2026, read-only). READ ONLY. Parking-sensor obstacle distance. Read 0 when parked with nothing near; unit unverified (probably cm, 0 = nothing detected). Probe state read 150 on every sensor (likely idle or not active). Check in reverse near a wall.",

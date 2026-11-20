@@ -203,8 +203,37 @@ fun QuickSettingsScreen(go: (Screen) -> Unit = {}) {
     val missing = QUICK_TILES.filter { !car.available(it.key) }.map { it.label } +
         listOfNotNull("SOC Hold switch".takeIf { !car.available("energy.socSave") }, "Screen rotation".takeIf { !car.available("display.screenRotation") })
 
+    // Android-level controls (not car signals): Bluetooth is read and switched through the adapter, screen brightness
+    // through the head unit's own adb (Settings.System.screen_brightness, 0-255).
+    val btAdapter = remember { runCatching { android.bluetooth.BluetoothAdapter.getDefaultAdapter() }.getOrNull() }
+    var btOn by remember { mutableStateOf(runCatching { btAdapter?.isEnabled == true }.getOrDefault(false)) }
+    var brightness by remember { mutableStateOf(readScreenBrightness(ctx)) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        while (true) {
+            btOn = runCatching { btAdapter?.isEnabled == true }.getOrDefault(btOn)
+            brightness = readScreenBrightness(ctx)
+            kotlinx.coroutines.delay(1500)
+        }
+    }
+    fun setBrightness(v: Int) {
+        val n = v.coerceIn(10, 255)
+        brightness = n
+        scope.launch { runCatching { c.adb.shell("settings put system screen_brightness $n") } }
+    }
+
+    val rowOne = tiles.map { t -> ControlTile(t.label, t.icon, t.isOn(car)) { t.toggle(car) } }
+    val rowTwo = MORE_TILES.filter { car.available(it.key) }.map { t -> ControlTile(t.label, t.icon, t.isOn(car)) { t.toggle(car) } } +
+        listOfNotNull(
+            btAdapter?.let {
+                ControlTile("Bluetooth", com.sharkhome.launcher.ui.components.Ic.Bluetooth, btOn) {
+                    btOn = !btOn
+                    runCatching { if (btOn) it.enable() else it.disable() }
+                }
+            },
+        )
+
     Column(
-        Modifier.fillMaxSize(),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -253,33 +282,15 @@ fun QuickSettingsScreen(go: (Screen) -> Unit = {}) {
             )
         }
 
-        // One row of big one-tap tiles (only features this car actually reports).
-        Row(Modifier.fillMaxWidth().height(132.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            tiles.forEach { t ->
-                val on = t.isOn(car)
-                val fg = if (on) androidx.compose.ui.graphics.Color.White else C.Ink
-                Column(
-                    Modifier.weight(1f).fillMaxHeight().clip(com.sharkhome.launcher.ui.components.Radius4)
-                        .background(if (on) accent else C.SurfaceCard)
-                        .border(1.dp, if (on) accent else C.Line, com.sharkhome.launcher.ui.components.Radius4)
-                        .clickable { t.toggle(car) }
-                        .padding(horizontal = 18.dp, vertical = 16.dp),
-                    verticalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        com.sharkhome.launcher.ui.components.DsIcon(t.icon, if (on) fg else C.InkSecondary, 34.dp)
-                        Box(Modifier.weight(1f))
-                        com.sharkhome.launcher.ui.components.T(if (on) "ON" else "OFF", 13, FontWeight.SemiBold, if (on) fg else C.InkMuted)
-                    }
-                    com.sharkhome.launcher.ui.components.T(t.label, 20, FontWeight.SemiBold, color = fg)
-                }
-            }
-            if (tiles.isEmpty()) com.sharkhome.launcher.ui.components.T("Waiting for the car service…", 18, color = C.InkMuted)
-        }
+        // Rows of big one-tap tiles (only features this car actually reports).
+        if (rowOne.isEmpty()) com.sharkhome.launcher.ui.components.T("Waiting for the car service…", 18, color = C.InkMuted)
+        else ControlTileRow(rowOne, 8, 132.dp, accent)
+        if (rowTwo.isNotEmpty()) ControlTileRow(rowTwo, 8, 108.dp, accent)
 
-        Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Driving feel and Battery hold are compact so the Windows card (and more controls later) fit underneath.
+        Row(Modifier.fillMaxWidth().height(390.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             // Driving feel
-            com.sharkhome.launcher.ui.components.DCard(Modifier.weight(1f).fillMaxHeight(), spacing = 10.dp) {
+            com.sharkhome.launcher.ui.components.DCard(Modifier.weight(1f).fillMaxHeight(), padding = 18.dp, spacing = 8.dp) {
                 com.sharkhome.launcher.ui.components.T("Driving feel", 22, FontWeight.SemiBold)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.SpaceEvenly) {
                     QuickModeRow(com.sharkhome.launcher.ui.components.Ic.Regen, "Regenerative braking", "Energy recovery when you lift off",
@@ -291,7 +302,7 @@ fun QuickSettingsScreen(go: (Screen) -> Unit = {}) {
                 }
             }
             // Energy
-            com.sharkhome.launcher.ui.components.DCard(Modifier.weight(1f).fillMaxHeight(), spacing = 12.dp) {
+            com.sharkhome.launcher.ui.components.DCard(Modifier.weight(1f).fillMaxHeight(), padding = 18.dp, spacing = 8.dp) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     com.sharkhome.launcher.ui.components.DsIcon(com.sharkhome.launcher.ui.components.Ic.SocHold, accent, 28.dp)
                     Column(Modifier.weight(1f)) {
@@ -307,63 +318,134 @@ fun QuickSettingsScreen(go: (Screen) -> Unit = {}) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     com.sharkhome.launcher.ui.components.ChevronButton(com.sharkhome.launcher.ui.components.Ic.Minus, "Lower target", {
                         target?.let { car.set("energy.socTarget", (it - 5).coerceIn(25.0, 70.0)) }
-                    }, size = 72.dp, iconSize = 28.dp)
+                    }, size = 56.dp, iconSize = 24.dp)
                     Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                        com.sharkhome.launcher.ui.components.T(target?.let { "${it.toInt()} %" } ?: "—", 56, FontWeight.Light, lineHeight = 62)
+                        com.sharkhome.launcher.ui.components.T(target?.let { "${it.toInt()} %" } ?: "—", 40, FontWeight.Light, lineHeight = 46)
                     }
                     com.sharkhome.launcher.ui.components.ChevronButton(com.sharkhome.launcher.ui.components.Ic.Plus, "Raise target", {
                         target?.let { car.set("energy.socTarget", (it + 5).coerceIn(25.0, 70.0)) }
-                    }, size = 72.dp, iconSize = 28.dp)
+                    }, size = 56.dp, iconSize = 24.dp)
                 }
                 com.sharkhome.launcher.ui.components.ThinBar(target?.let { (it / 100).toFloat() }, color = accent, height = 6.dp)
-                Box(Modifier.weight(1f))
-                com.sharkhome.launcher.ui.components.T("Last 50 km: where the energy went", 15, color = C.InkSecondary)
+                com.sharkhome.launcher.ui.components.T("Last 50 km: where the energy went", 14, color = C.InkSecondary)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                    com.sharkhome.launcher.ui.components.LabelValue("Driving", car.n("energy.drivePct50km").fmt(0, " %"), Modifier.weight(1f), valueSize = 22, labelSize = 14)
-                    com.sharkhome.launcher.ui.components.LabelValue("A/C", car.n("energy.acPct50km").fmt(0, " %"), Modifier.weight(1f), valueSize = 22, labelSize = 14)
-                    com.sharkhome.launcher.ui.components.LabelValue("Other", car.n("energy.auxPct50km").fmt(0, " %"), Modifier.weight(1f), valueSize = 22, labelSize = 14)
+                    com.sharkhome.launcher.ui.components.LabelValue("Driving", car.n("energy.drivePct50km").fmt(0, " %"), Modifier.weight(1f), valueSize = 20, labelSize = 13)
+                    com.sharkhome.launcher.ui.components.LabelValue("A/C", car.n("energy.acPct50km").fmt(0, " %"), Modifier.weight(1f), valueSize = 20, labelSize = 13)
+                    com.sharkhome.launcher.ui.components.LabelValue("Other", car.n("energy.auxPct50km").fmt(0, " %"), Modifier.weight(1f), valueSize = 20, labelSize = 13)
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                    com.sharkhome.launcher.ui.components.LabelValue("Lifetime EV", car.n("vehicle.evMileage").fmt(0, " km"), Modifier.weight(1f), valueSize = 22, labelSize = 14)
-                    com.sharkhome.launcher.ui.components.LabelValue("Lifetime HEV", car.n("vehicle.hevMileage").fmt(0, " km"), Modifier.weight(1f), valueSize = 22, labelSize = 14)
-                    com.sharkhome.launcher.ui.components.LabelValue("Power source", car.label("vehicle.powerMode") ?: "—", Modifier.weight(1f), valueSize = 22, labelSize = 14)
+                    com.sharkhome.launcher.ui.components.LabelValue("Lifetime EV", car.n("vehicle.evMileage").fmt(0, " km"), Modifier.weight(1f), valueSize = 20, labelSize = 13)
+                    com.sharkhome.launcher.ui.components.LabelValue("Lifetime HEV", car.n("vehicle.hevMileage").fmt(0, " km"), Modifier.weight(1f), valueSize = 20, labelSize = 13)
+                    com.sharkhome.launcher.ui.components.LabelValue("Power source", car.label("vehicle.powerMode") ?: "—", Modifier.weight(1f), valueSize = 20, labelSize = 13)
                 }
                 com.sharkhome.launcher.ui.components.Hairline()
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                    com.sharkhome.launcher.ui.components.LabelValue("HV battery", car.n("vehicle.batteryPct").fmt(0, " %"), Modifier.weight(1f), valueSize = 22, labelSize = 14)
-                    com.sharkhome.launcher.ui.components.LabelValue("12V battery", car.n("battery.voltage").fmt(1, " V"), Modifier.weight(1f), valueSize = 22, labelSize = 14)
-                    com.sharkhome.launcher.ui.components.LabelValue("Battery health", car.n("vehicle.batteryHealth").fmt(0, " %"), Modifier.weight(1f), valueSize = 22, labelSize = 14)
+                    com.sharkhome.launcher.ui.components.LabelValue("HV battery", car.n("vehicle.batteryPct").fmt(0, " %"), Modifier.weight(1f), valueSize = 20, labelSize = 13)
+                    com.sharkhome.launcher.ui.components.LabelValue("12V battery", car.n("battery.voltage").fmt(1, " V"), Modifier.weight(1f), valueSize = 20, labelSize = 13)
+                    com.sharkhome.launcher.ui.components.LabelValue("Battery health", car.n("vehicle.batteryHealth").fmt(0, " %"), Modifier.weight(1f), valueSize = 20, labelSize = 13)
                 }
             }
         }
 
-        // One-tap BYD OEM app shortcuts (promoted from Test tab — open BYD's own screens directly).
-        com.sharkhome.launcher.ui.components.DCard(Modifier.fillMaxWidth(), padding = 14.dp, spacing = 10.dp) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                com.sharkhome.launcher.ui.components.Eyebrow("BYD apps")
-                Box(Modifier.width(4.dp))
-                BYD_SHORTCUTS.forEach { (label, pkg) ->
-                    com.sharkhome.launcher.ui.components.DButton(
-                        text = label,
-                        onClick = { launchBydPackage(ctx, label, pkg) },
-                        modifier = Modifier.weight(1f),
-                        style = if (pkg == "com.byd.avm") BtnStyle.Primary else BtnStyle.Lightest,
-                        height = 50.dp,
-                        textSize = 15,
-                    )
+        Row(Modifier.fillMaxWidth().height(206.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Windows: open / close with the same codes BYD's voice assistant sends (BYDAutoBodyworkDevice.setWindowControlState).
+            // The Shark 6 has no adjustable rear windows, so only the two front ones are shown.
+            com.sharkhome.launcher.ui.components.DCard(Modifier.weight(2f).fillMaxHeight(), padding = 18.dp, spacing = 10.dp) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    com.sharkhome.launcher.ui.components.T("Windows", 22, FontWeight.SemiBold)
+                    com.sharkhome.launcher.ui.components.T("They move slowly. Tap the other button to reverse.", 14, color = C.InkMuted)
                 }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    WINDOWS.forEach { w ->
+                        val pct = car.n(w.readKey)
+                        Column(
+                            Modifier.weight(1f).clip(com.sharkhome.launcher.ui.components.Radius4)
+                                .border(1.dp, C.Line, com.sharkhome.launcher.ui.components.Radius4).padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                com.sharkhome.launcher.ui.components.T(w.label, 18, FontWeight.Medium, modifier = Modifier.weight(1f))
+                                com.sharkhome.launcher.ui.components.T(pct?.let { "${it.toInt().coerceIn(0, 100)} % open" } ?: "—", 14, color = C.InkMuted)
+                            }
+                            com.sharkhome.launcher.ui.components.ThinBar(pct?.let { (it / 100).toFloat() }, color = accent, height = 6.dp)
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                com.sharkhome.launcher.ui.components.DButton("Open", { car.setLabel(w.ctlKey, "open") }, Modifier.weight(1f), height = 48.dp, textSize = 16)
+                                com.sharkhome.launcher.ui.components.DButton("Close", { car.setLabel(w.ctlKey, "closed") }, Modifier.weight(1f), height = 48.dp, textSize = 16)
+                            }
+                        }
+                    }
+                }
+            }
+            // Screen brightness of the centre display (Android's screen_brightness setting, written through the unit's own adb).
+            com.sharkhome.launcher.ui.components.DCard(Modifier.weight(1f).fillMaxHeight(), padding = 18.dp, spacing = 10.dp) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    com.sharkhome.launcher.ui.components.DsIcon(com.sharkhome.launcher.ui.components.Ic.Brightness, accent, 28.dp)
+                    com.sharkhome.launcher.ui.components.T("Screen brightness", 22, FontWeight.SemiBold)
+                }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    com.sharkhome.launcher.ui.components.ChevronButton(com.sharkhome.launcher.ui.components.Ic.Minus, "Dimmer", { setBrightness(brightness - 15) }, size = 56.dp, iconSize = 24.dp)
+                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        com.sharkhome.launcher.ui.components.T("${(brightness * 100 / 255)} %", 40, FontWeight.Light, lineHeight = 46)
+                    }
+                    com.sharkhome.launcher.ui.components.ChevronButton(com.sharkhome.launcher.ui.components.Ic.Plus, "Brighter", { setBrightness(brightness + 15) }, size = 56.dp, iconSize = 24.dp)
+                }
+                com.sharkhome.launcher.ui.components.ThinBar(brightness / 255f, color = accent, height = 6.dp)
             }
         }
     }
 }
 
-private val BYD_SHORTCUTS = listOf(
-    "360° Camera" to "com.byd.avm",
-    "Smart Charging" to "com.byd.smarttravel",
-    "Scene Mode" to "com.byd.scenemode",
-    "My Car" to "com.byd.mycar",
-    "Data Monitor" to "com.byd.trafficmonitor",
-    "Rage Mode" to "com.byd.dlc.drivingmode",
+private fun readScreenBrightness(ctx: android.content.Context): Int =
+    runCatching { android.provider.Settings.System.getInt(ctx.contentResolver, "screen_brightness") }.getOrDefault(128)
+
+/** One tile on the Quick controls screen (a car signal or an Android setting). */
+private data class ControlTile(val label: String, val icon: com.sharkhome.launcher.ui.components.Ic, val on: Boolean, val onClick: () -> Unit)
+
+/** A row of equal-width tiles; empty slots keep the width of the last tiles when a row isn't full. */
+@Composable
+private fun ControlTileRow(tiles: List<ControlTile>, columns: Int, height: androidx.compose.ui.unit.Dp, accent: androidx.compose.ui.graphics.Color) {
+    Row(Modifier.fillMaxWidth().height(height), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        tiles.forEach { t ->
+            val fg = if (t.on) androidx.compose.ui.graphics.Color.White else C.Ink
+            Column(
+                Modifier.weight(1f).fillMaxHeight().clip(com.sharkhome.launcher.ui.components.Radius4)
+                    .background(if (t.on) accent else C.SurfaceCard)
+                    .border(1.dp, if (t.on) accent else C.Line, com.sharkhome.launcher.ui.components.Radius4)
+                    .clickable { t.onClick() }
+                    .padding(horizontal = 18.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    com.sharkhome.launcher.ui.components.DsIcon(t.icon, if (t.on) fg else C.InkSecondary, 34.dp)
+                    Box(Modifier.weight(1f))
+                    com.sharkhome.launcher.ui.components.T(if (t.on) "ON" else "OFF", 13, FontWeight.SemiBold, if (t.on) fg else C.InkMuted)
+                }
+                com.sharkhome.launcher.ui.components.T(t.label, 19, FontWeight.SemiBold, color = fg, maxLines = 1)
+            }
+        }
+        repeat((columns - tiles.size).coerceAtLeast(0)) { Box(Modifier.weight(1f)) }
+    }
+}
+
+private fun carToggle(id: String, label: String, icon: com.sharkhome.launcher.ui.components.Ic, key: String) =
+    QuickTile(id, label, icon, key, { it.on(key) }, { it.toggle(key) })
+
+/** Second row of Quick controls: toggles whose read and write were both confirmed on the car (see CHANGELOG v0.6.774). */
+private val MORE_TILES = listOf(
+    carToggle("closelock", "Close on Lock", com.sharkhome.launcher.ui.components.Ic.Window, "locks.lockCloseWindows"),
+    carToggle("closerain", "Close in Rain", com.sharkhome.launcher.ui.components.Ic.Rain, "locks.rainCloseWindows"),
+    carToggle("wiper", "Auto Wiper", com.sharkhome.launcher.ui.components.Ic.Wiper, "vehicle.autoWiper"),
+    carToggle("courtesy", "Courtesy Light", com.sharkhome.launcher.ui.components.Ic.Headlight, "light.courtesyLight"),
+    carToggle("autolock", "Auto Lock", com.sharkhome.launcher.ui.components.Ic.Lock, "locks.autoLock"),
+    carToggle("reardemist", "Rear Demist", com.sharkhome.launcher.ui.components.Ic.RearDemist, "climate.defrostRear"),
+)
+
+/** A window: where it is read (open %), and the write-only signal that moves it (see shark6_codes.json window.ctl.*). */
+private data class WindowSpec(val label: String, val readKey: String, val ctlKey: String)
+
+private val WINDOWS = listOf(
+    WindowSpec("Front left", "window.frontLeft", "window.ctl.frontLeft"),
+    WindowSpec("Front right", "window.frontRight", "window.ctl.frontRight"),
 )
 
 private fun launchBydPackage(ctx: android.content.Context, label: String, pkg: String) {

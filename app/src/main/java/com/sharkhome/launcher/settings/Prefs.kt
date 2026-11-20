@@ -303,6 +303,11 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("sidebarHidden", false)
         set(v) = edit { putBoolean("sidebarHidden", v) }
 
+    /** SHA-256 of the bundled wake-helper APK that was last installed (or found already installed); empty = not recorded yet. */
+    var helperHash: String
+        get() = sp.getString("helperHash", "") ?: ""
+        set(v) = edit { putString("helperHash", v) }
+
     /** Package names of stock APK installers the user switched off so SharkOS-CE answers install requests (comma separated). */
     var disabledInstallers: String
         get() = sp.getString("disabledInstallers", "") ?: ""

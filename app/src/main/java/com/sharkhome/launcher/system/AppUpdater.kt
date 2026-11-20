@@ -349,9 +349,16 @@ class AppUpdater(
             @Suppress("DEPRECATION")
             val bundledCode = ctx.packageManager.getPackageArchiveInfo(bundled.absolutePath, 0)?.versionCode ?: return@withContext false
             val installedCode = runCatching { @Suppress("DEPRECATION") ctx.packageManager.getPackageInfo(HELPER_PKG, 0).versionCode }.getOrNull()
+            // Also compare the bundled file's content, so a changed helper still updates if its versionCode wasn't bumped.
+            val bundledHash = apkContentHash(bundled)
             if (installedCode != null && installedCode >= bundledCode) {
-                _helper.value = HelperState.Installed
-                return@withContext true
+                // First run with this check: remember the hash (the installed helper was current by version) instead of reinstalling.
+                if (prefs.helperHash.isEmpty()) prefs.helperHash = bundledHash
+                if (prefs.helperHash == bundledHash) {
+                    _helper.value = HelperState.Installed
+                    return@withContext true
+                }
+                Log.e(TAG, "Bundled helper differs from the last installed one (same or lower versionCode): updating")
             }
             _helper.value = HelperState.Installing
             val viaAdb = withTimeoutOrNull(4000.milliseconds) { runCatching { adb.connect() }.getOrDefault(false) } ?: false
@@ -360,6 +367,7 @@ class AppUpdater(
             if (!out.contains("Success")) { _helper.value = HelperState.Error("Helper install failed: ${out.take(120)}"); return@withContext false }
             runCatching { adb.shell("cmd deviceidle whitelist +$HELPER_PKG") }
             com.sharkhome.launcher.StartupService.startWakeHelper(ctx)
+            prefs.helperHash = bundledHash
             _helper.value = HelperState.Installed
             true
         } catch (t: Throwable) {
@@ -367,6 +375,22 @@ class AppUpdater(
             _helper.value = HelperState.Error(t.message ?: t.javaClass.simpleName)
             false
         }
+    }
+
+    /**
+     * SHA-256 over every entry of an APK except META-INF (names and bytes, sorted). Two builds of the same source give
+     * the same value even though their signature/build-info blocks differ, so the helper is only reinstalled when it changed.
+     */
+    private fun apkContentHash(apk: File): String {
+        val md = java.security.MessageDigest.getInstance("SHA-256")
+        java.util.zip.ZipFile(apk).use { zip ->
+            zip.entries().asSequence().filter { !it.isDirectory && !it.name.startsWith("META-INF/") }
+                .sortedBy { it.name }.forEach { e ->
+                    md.update(e.name.toByteArray())
+                    zip.getInputStream(e).use { s -> val buf = ByteArray(65536); while (true) { val n = s.read(buf); if (n < 0) break; md.update(buf, 0, n) } }
+                }
+        }
+        return md.digest().joinToString("") { "%02x".format(it) }
     }
 
     fun openReleasesPage() {

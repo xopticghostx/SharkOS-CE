@@ -9,7 +9,7 @@ data class Source(
     val backend: String,          // "caradapter" or "bydauto"
     val target: String,           // adapter name ("hvac", "*") or bydauto device class
     val methods: List<String>,
-    val args: List<Double>,
+    val args: List<Any>,          // numbers, or a nested JSON array of numbers for an int[] parameter
 ) {
     val label: String get() = "$backend.$target"
 }
@@ -107,7 +107,10 @@ class CarCodes(val signals: Map<String, Signal>, val origin: String) {
                 val m = o.getJSONArray("methods")
                 val methods = (0 until m.length()).map { m.getString(it) }
                 val a = o.optJSONArray("args")
-                val args = if (a == null) emptyList() else (0 until a.length()).map { a.getDouble(it) }
+                val args: List<Any> = if (a == null) emptyList() else (0 until a.length()).map { i ->
+                    val e = a.get(i)
+                    if (e is JSONArray) (0 until e.length()).map { j -> e.getDouble(j) } else a.getDouble(i)
+                }
                 list.add(Source(backend, o.getString(backend), methods, args))
             }
             return list

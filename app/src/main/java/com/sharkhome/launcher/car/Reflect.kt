@@ -46,6 +46,7 @@ object Reflect {
     }
 
     private fun coerce(v: Any, t: Class<*>): Any {
+        if (v is List<*> && t == IntArray::class.java) return IntArray(v.size) { (v[it] as Number).toDouble().roundToInt() }
         if (v !is Number) return v
         val d = v.toDouble()
         return when (t) {
