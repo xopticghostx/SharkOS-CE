@@ -1,4 +1,4 @@
-﻿# ðŸ¦ˆ SharkOS CE
+# 🦈 SharkOS CE
 
 **A free, open-source home screen and vehicle control app for the BYD Shark 6.**
 
@@ -15,11 +15,11 @@
 | **Works with** | BYD Shark 6 head unit, Android 11, firmware `SOC_260811_S`. This is the only version it has been tested on; other firmware is untested. |
 | **You need** | A Windows PC on the same Wi-Fi as the car (a phone hotspot works). No admin rights. |
 | **Install** | 1. Download the installer from the [latest release](https://github.com/xopticghostx/SharkOS-CE/releases/latest). 2. Switch on ADB in the car (one-off). 3. Double-click `Install SharkOS CE.bat`. [Step-by-step below](#install-on-windows). |
-| **Updates** | In the app, under **Settings â€º Updates**. Your BYD home screen stays installed, so you can switch back any time. |
+| **Updates** | In the app, under **Settings › Updates**. Your BYD home screen stays installed, so you can switch back any time. |
 
-**Jump to:** [Install](#install-on-windows) Â· [Screenshots](#screenshots) Â· [Safety](#safety) Â· [Features](#features) Â· [Technical reference](#technical-reference) Â· [Support](#support-the-project)
+**Jump to:** [Install](#install-on-windows) · [Screenshots](#screenshots) · [Safety](#safety) · [Features](#features) · [Technical reference](#technical-reference) · [Support](#support-the-project)
 
-> âš ï¸ **Use at your own risk.** This is an unofficial community project. It is not affiliated with or endorsed by BYD, and it can change some driver-assist settings. Read [DISCLAIMER.md](DISCLAIMER.md) first.
+> ⚠️ **Use at your own risk.** This is an unofficial community project. It is not affiliated with or endorsed by BYD, and it can change some driver-assist settings. Read [DISCLAIMER.md](DISCLAIMER.md) first.
 
 ![Home screen](docs/screenshots/home.png)
 
@@ -30,7 +30,7 @@ You need a Windows PC on the same Wi-Fi network as the car. No admin rights are 
 1. **Download** the `SharkOS-CE-Installer` zip from the [latest release](https://github.com/xopticghostx/SharkOS-CE/releases/latest) and unzip it.
 2. **Park the car**, switch it on, and connect it to the same Wi-Fi as your PC (a phone hotspot works).
 3. **Switch on ADB (debugging) in the car.** Do this once:
-   1. On the car screen go to **Car â€º System â€º Version**.
+   1. On the car screen go to **Car › System › Version**.
    2. Tap the words **Factory Reset** quickly, about 10 times. Tap the text itself, not the Reset button. Nothing is reset.
    3. A hidden menu opens. Rotate the screen to portrait if some options are missing.
    4. Press the button that starts **CONNECT USB TO ENABLE DEBUGGING MODE**. The car says *Turn on ADB debugging*.
@@ -42,14 +42,14 @@ You need a Windows PC on the same Wi-Fi network as the car. No admin rights are 
    - installs SharkOS CE and its helper, grants the permissions it needs and opens the app
 5. On the car, press **Home** and choose **SharkOS-CE** and **Always**.
 
-Your BYD home screen stays installed and you can switch back at any time. The installer prints the exact command to do that. Once installed, SharkOS CE can update itself from this page (**Settings â€º Updates**).
+Your BYD home screen stays installed and you can switch back at any time. The installer prints the exact command to do that. Once installed, SharkOS CE can update itself from this page (**Settings › Updates**).
 
 More detail and options: [SharkOS-CE-Installer/README.md](SharkOS-CE-Installer/README.md).
 
 ## Features
 
 ### Home screen
-- **Widget grid.** Widgets sit on a 12 Ã— 8 grid. Hold a widget to edit, drag to move it, drag the handles to resize, and pick what each widget shows.
+- **Widget grid.** Widgets sit on a 12 × 8 grid. Hold a widget to edit, drag to move it, drag the handles to resize, and pick what each widget shows.
 - **Ready-made layouts.** In edit mode, the **Layout** button switches between Default, Driver focus, Charging & climate, and Media & map.
 - **20 widgets**, including the Shark 6 vehicle card, Climate, Media, Map, Weather, Gauge, Power, Trip, Off-road, Charging, Tyres, Tow & Trailer, Quick Controls and more.
 - **Shark 6 visualiser** in your paint colour, with working headlights, brake lights and indicators.
@@ -62,8 +62,8 @@ More detail and options: [SharkOS-CE-Installer/README.md](SharkOS-CE-Installer/R
 
 ### Driving
 - **Climate.** Both seats, heat and vent, fan, A/C, recirculate, airflow, demist and one-tap presets. Every change is checked against what the car reports.
-- **Quick controls & BYD settings.** Large tiles for the car's switches, BYD app shortcuts (360Â° Camera, Smart Charging, Scene Mode, My Car, Data Monitor, Rage Mode), driving feel, battery hold target (25 to 70 %), and a dedicated **BYD settings** tab (SAVE/SPORT memory, auto lock, rain wiper/window auto-close, courtesy light, and HUD controls).
-- **Trail mode.** Pitch and roll inclinometer, trail systems (hill descent, ESC, auto hold), 360Â° Camera button, compass, altitude and a topographic map.
+- **Quick controls & BYD settings.** Large tiles for the car's switches, window open/close, Bluetooth and screen brightness, a row of BYD convenience toggles (auto-close windows, rain wiper, courtesy light, auto lock, rear demist), driving feel, battery hold target (25 to 70 %), and a dedicated **BYD settings** tab (SAVE/SPORT memory, auto lock, rain wiper/window auto-close, courtesy light, and HUD controls).
+- **Trail mode.** Pitch and roll inclinometer, trail systems (hill descent, ESC, auto hold), 360° Camera button, compass, altitude and a topographic map.
 - **Towing.** Trailer mode, trailer size, a before-you-set-off checklist and one-tap towing handling.
 - **Gauges.** One large dial and five bar gauges, each showing the reading you choose.
 
@@ -104,7 +104,7 @@ Screenshots were taken on the car with v0.6.761. Map and location details are hi
 - SharkOS CE never changes a car setting by itself: only the controls you press and the settings you tick **Remember** on.
 - Every write is followed by a read-back, and the screen shows the state the car reports.
 - There is no built-in blocklist or speed limit, so it can also switch off safety systems such as stability control (ESC) if you choose to. New signals added to `shark6_codes.json` hit no blocklist either.
-- You are responsible for what you change â€” check that it is legal where you drive and doesn't affect your insurance. Set things up while parked.
+- You are responsible for what you change — check that it is legal where you drive and doesn't affect your insurance. Set things up while parked.
 
 ## Status
 
@@ -160,12 +160,12 @@ Want a widget or feature that isn't here yet? You can commission custom SharkOS 
 - **HomeSpace (Jayzee).** The car connection techniques and many BYD method names were learned by studying this app. No code from it is included.
 - The steps for switching on ADB follow the community guide at [MorghusDragon/BYD-Shark-Sideloading](https://github.com/MorghusDragon/BYD-Shark-Sideloading).
 - **Libraries:** AndroidX and Jetpack Compose (Apache-2.0), kotlinx.coroutines (Apache-2.0), [dadb](https://github.com/mobile-dev-inc/dadb) (Apache-2.0), [MapLibre Native](https://github.com/maplibre/maplibre-native) (BSD-2-Clause), [osmdroid](https://github.com/osmdroid/osmdroid) (Apache-2.0).
-- **Map data and services:** Â© OpenStreetMap contributors, OpenFreeMap, OpenTopoMap (CC-BY-SA), Open-Meteo.
+- **Map data and services:** © OpenStreetMap contributors, OpenFreeMap, OpenTopoMap (CC-BY-SA), Open-Meteo.
 
 BYD, DiLink, Shark 6, TuneIn and other names are trademarks of their owners.
 
 ## Licence
 
-Copyright Â© 2026 Nicholas Hewitt
+Copyright © 2026 Nicholas Hewitt
 
 SharkOS CE is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License, version 3, as published by the Free Software Foundation. It is distributed without any warranty. See [LICENSE](LICENSE) for the full text.
